@@ -29,8 +29,6 @@ library(WaveletComp)
 library(data.table)
 ```
 
-setwd("~/Documents/MastersProject")
-
 ### Load site list SACTN data
 
 Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS). The SACTN dataset comprise of 129 *in situ* coastal seawater temperatures derived from daily measurements over up to 40 years. The SACTN temperature dataset was compiled by measuring coastal temperatures at 129 sites along the coast of South Africa, daily from 1972 until 2017. 
@@ -49,36 +47,124 @@ site_list_sub <- site_list %>%
 SACTN_daily_wc <- site_list_sub %>% 
   filter(length >= 3650)
 
-upwelling_SACTN_daily_wc <- SACTN_daily_wc[-6,] # Here we had two rows of data for Paternoster; i removed the DEA row: All data here are now collected by SAWS 
-upwelling_SACTN_daily_wc <- upwelling_SACTN_daily_wc[-10:-14,] # Here i remove the sites that does not fall within the upwelling cell
+upwelling_sites <- SACTN_daily_wc[-6,] # Here we had two rows of data for Paternoster; i removed the DEA row: All data here are now collected by SAWS 
+upwelling_sites <- upwelling_sites[-10:-14,] # Here i remove the sites that does not fall within the upwelling cell
 
 SACTN_daily_temps <- SACTN_daily_v4.2 %>% 
   left_join(site_list[,c(4,13)], by = "index") %>% 
-  filter(index %in% upwelling_SACTN_daily_wc$index)
+  filter(index %in% upwelling_sites$index)
+
+# save(SACTN_daily_temps, file = "SACTN_daily_temps.RData")
 
 SACTN_daily_temps_indexsplit <- SACTN_daily_temps %>% 
   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>% 
   dplyr::rename(insitu_temp = temp)
+
+save(SACTN_daily_temps_indexsplit, file = "SACTN_daily_temps_indexsplit.RData")
 ```
 
 Here I add monthly and yearly column as well as a seasonal column. This is done as it allows us to compare temperature variation on a seasonal basis. Research studies done suggests that the intensity and duration of upwelling varies on a seasonal basis. Here we test this....... #Could plot on a seasonal basis##
 
 ```{r}
-SACTN_daily_temps_monthly <- SACTN_daily_temps %>% 
+SACTN_monthly <- function(df) {
+  SACTN_split_monthly <- df %>%
   mutate(month = month(date, abbr = T, label = T),
          year = year(date)) %>%
   group_by(index, month, year) %>%
-    mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",        
+    mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",       
                            ifelse(month %in% c("Apr", "May", "Jun"), "Autumn",
                                 ifelse(month %in% c("Jul", "Aug", "Sep"), "Winter",
-                                       ifelse(month %in% c("Oct", "Nov", "Dec"),
-                                              "Spring","Error")))))
+                                       ifelse(month %in% c("Oct", "Nov", "Dec"), "Spring","Error")))))
+  return(SACTN_split_monthly)
+}
+
+# SACTN_daily_temps_indexsplit <- SACTN_monthly(df = SACTN_daily_temps_indexsplit)
+# save(SACTN_daily_temps_indexsplit, file = "SACTN_daily_temps_indexsplit.RData")
+```
+
+Find where different sites have overlapping time series within this `SACTN_daily_temps_indexsplit` dataset. A time series with a length of 3years is long enough.
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/SACTN_daily_temps_indexsplit.RData")
+SACTN_3yr <- SACTN_daily_temps_indexsplit %>% 
+  filter(year(date) %in% seq(1998, 1999, 2000))
+```
+
+
+```{r}
+ggplot(data = SACTN_3yr , aes(x = date, y = insitu_temp)) +
+  geom_hline(aes(yintercept = mean(insitu_temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
 ```
 
 In this thesis, different remotely sensed SST datasets are used. Hence, these datasets all represent different resolutions at which data was obtained. We will make use of five different remotely sensed SST datasets, these include; the  MUR, AVHRR OISST, Pathfinder and G1SST data.
 Once the SST data were downloaded with a netCDF format i needed to convert this netCDfs to CSV
 
-Here I load the AVHRR CSV dataset. Large dataset and slows down the laptop. Here i split the data into xaa and xab. Here xaa and xab only include temperature collected for two years.
+## MUR dataset
+
+```{r}
+MUR_Doringbaai <- read_csv("Data/MUR_nearest5pixels/MUR_Doringbaai_SST_timeseries_5nearest.csv")
+MUR_Elands_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Elands Bay_SST_timeseries_5nearest.csv")
+MUR_Hondeklipbaai <- read_csv("Data/MUR_nearest5pixels/MUR_Hondeklipbaai_SST_timeseries_5nearest.csv")
+MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
+MUR_Paternoster <- read_csv("Data/MUR_nearest5pixels/MUR_Paternoster_SST_timeseries_5nearest.csv")
+MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
+MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
+MUR_St_Helena_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_St Helena Bay_SST_timeseries_5nearest.csv")
+MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
+
+MUR_SST <- rbind(MUR_Doringbaai,MUR_Elands_Bay, MUR_Hondeklipbaai,MUR_Lamberts_Bay,MUR_Yzerfontein,
+                 MUR_Paternoster, MUR_Port_Nolloth,MUR_Saldanha_Bay, MUR_St_Helena_Bay) %>%
+  dplyr::rename(site = station)
+
+MUR_SST$date <- (ymd(MUR_SST$date))
+
+save(MUR_SST, file = "Data/MUR_SST.RData")
+```
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST.RData")
+```
+
+```{r}
+MUR_SST <- MUR_SST %>% 
+  dplyr::rename(temp = nearest1)
+
+match_func <- function(df){
+  match <- SACTN_daily_temps_indexsplit  %>% 
+  left_join(df, by = c("site", "date")) %>% 
+  na.trim()
+  return(match)
+}
+
+insitu_MUR <- match_func(df = MUR_SST)
+```
+
+```{r}
+match_plot <- function(df){
+  plot1 <- df %>% 
+ggplot(aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+  return(plot1)
+}
+
+MUR_plot <- match_plot(df = MUR_SST)
+```
+
+################################
+
+-  Need to plot a line graph with all SST dat and the insitu data on one graph
+
+################################
+
+
+Here I load the AVHRR CSV dataset. 
+
 ```{r}
 # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
 
@@ -87,11 +173,6 @@ OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
             col.names = c("lon", "lat", "temp", "date"))
 
 #OISST <- as.tibble(fread("~/Documents/Masters_2019/MastersProject/Data/csvavhrr-only-v2-19810901-20180630.csv"))
-##################
-# xaa <- read_csv("Data/xaa.csv",  col_names = c("lon", "lat", "temp", "date"))
-# xab <- read_csv("Data/xab.csv",  col_names = c("lon", "lat", "temp", "date"))
-# combined_OISST <- rbind(xaa, xab)
-# save(combined_OISST, file = "data/combined_OISST.RData")
 ```
 
 # Quick visualisation of the data
@@ -118,12 +199,12 @@ unique_pixel <- OISST %>%
 # Select nearest 1 pixels (k = 1)
 # here we use knnx to find the closes 1 pixels to the insitu sites
 match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
-                          query = as.matrix(upwelling_SACTN_daily_wc[,5:6]), k = 1)
+                          query = as.matrix(upwelling_sites[,5:6]), k = 1)
 
 # Select SST pixels nearest to insitu sites
 pixel_match <- unique_pixel[match_index,] %>%
   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-  mutate(site = upwelling_SACTN_daily_wc$site)
+  mutate(site = upwelling_sites$site)
 ```
 
 ## Subsetting the OISST data to match the upwelling sites within the in situ collected temperature data
@@ -173,32 +254,11 @@ load("~/Documents/MastersProject/Data/combined_OISST_sites.RData")
 - Here there are many NA values because the OISST have many values collected per day where as the insitu temp only has 1
 
 ```{r}
-matched_SST <- OISST_sites %>% 
-  left_join(SACTN_daily_temps_indexsplit, by = c("site", "date")) %>% 
-    na.trim()
-```
-
-## MUR dataset
-
-```{r}
-# MUR_Doringbaai <- read_csv("Data/MUR_nearest5pixels/MUR_Doringbaai_SST_timeseries_5nearest.csv")
-# MUR_Elands_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Elands Bay_SST_timeseries_5nearest.csv")
-# MUR_Hondeklipbaai <- read_csv("Data/MUR_nearest5pixels/MUR_Hondeklipbaai_SST_timeseries_5nearest.csv")
-# MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
-# MUR_Paternoster <- read_csv("Data/MUR_nearest5pixels/MUR_Paternoster_SST_timeseries_5nearest.csv")
-# MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
-# MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
-# MUR_St_Helena_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_St Helena Bay_SST_timeseries_5nearest.csv")
-# MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
-# 
-# MUR_SST <- rbind(MUR_Doringbaai,MUR_Elands_Bay, MUR_Hondeklipbaai,MUR_Lamberts_Bay,MUR_Yzerfontein,
-#                  MUR_Paternoster, MUR_Port_Nolloth,MUR_Saldanha_Bay, MUR_St_Helena_Bay) %>% 
-#   dplyr::rename(site = station)
-# save(MUR_SST, file = "Data/MUR_SST.RData")
+insitu_OISST <- match_func(df = OISST_sites)
 ```
 
 ```{r}
-load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST.RData")
+OISST_plot <- match_plot(df = OISST_sites)
 ```
 
 
@@ -211,18 +271,3 @@ load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST.RData")
 
 
 
-
-hee1 <- try1 %>% 
-  dplyr::group_by(site, date) %>% 
-  dplyr::summarise(temp = mean(temp, na.rm = TRUE)) %>% 
-  dplyr::mutate(no = seq(1:n())) %>%
-  dplyr::ungroup() %>% 
-  dplyr::select(site, temp, date)
-
-
-ggplot(data = thee1, aes(x = date, y = temp)) +
-  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
-  geom_line() +
-  facet_wrap(~ site, nrow = 4) +
-  theme_bw() +
-  theme(strip.text.x = element_text(size = 3))
