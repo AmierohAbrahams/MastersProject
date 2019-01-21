@@ -60,7 +60,7 @@ SACTN_daily_temps_indexsplit <- SACTN_daily_temps %>%
   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>% 
   dplyr::rename(insitu_temp = temp)
 
-save(SACTN_daily_temps_indexsplit, file = "SACTN_daily_temps_indexsplit.RData")
+# save(SACTN_daily_temps_indexsplit, file = "Data/SACTN_daily_temps_indexsplit.RData")
 ```
 
 Here I add monthly and yearly column as well as a seasonal column. This is done as it allows us to compare temperature variation on a seasonal basis. Research studies done suggests that the intensity and duration of upwelling varies on a seasonal basis. Here we test this....... #Could plot on a seasonal basis##
@@ -78,15 +78,16 @@ SACTN_monthly <- function(df) {
   return(SACTN_split_monthly)
 }
 
-# SACTN_daily_temps_indexsplit <- SACTN_monthly(df = SACTN_daily_temps_indexsplit)
-# save(SACTN_daily_temps_indexsplit, file = "SACTN_daily_temps_indexsplit.RData")
+SACTN_split <- SACTN_monthly(df = SACTN_daily_temps_indexsplit)
+save(SACTN_split, file = "SACTN_split.RData")
 ```
 
 Find where different sites have overlapping time series within this `SACTN_daily_temps_indexsplit` dataset. A time series with a length of 3years is long enough.
 
 ```{r}
-load("~/Documents/Masters_2019/MastersProject/Data/SACTN_daily_temps_indexsplit.RData")
-SACTN_3yr <- SACTN_daily_temps_indexsplit %>% 
+load("~/Documents/Masters_2019/MastersProject/Data/SACTN_split.RData")
+
+SACTN_3yr <- SACTN_split %>% 
   filter(year(date) %in% seq(1998, 1999, 2000))
 ```
 
@@ -133,7 +134,7 @@ MUR_SST <- MUR_SST %>%
   dplyr::rename(temp = nearest1)
 
 match_func <- function(df){
-  match <- SACTN_daily_temps_indexsplit  %>% 
+  match <- SACTN_split  %>% 
   left_join(df, by = c("site", "date")) %>% 
   na.trim()
   return(match)
