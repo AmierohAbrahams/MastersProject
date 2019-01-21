@@ -78,11 +78,11 @@ SACTN_monthly <- function(df) {
   return(SACTN_split_monthly)
 }
 
-SACTN_split <- SACTN_monthly(df = SACTN_daily_temps_indexsplit)
-save(SACTN_split, file = "SACTN_split.RData")
+# SACTN_split <- SACTN_monthly(df = SACTN_daily_temps_indexsplit)
+# save(SACTN_split, file = "SACTN_split.RData")
 ```
 
-Find where different sites have overlapping time series within this `SACTN_daily_temps_indexsplit` dataset. A time series with a length of 3years is long enough.
+Find where different sites have overlapping time series within this `SACTN_split` dataset. A time series with a length of 3years is long enough. The only problem is that the SST data do not overlap during these years (1998, 1999, 2000)
 
 ```{r}
 load("~/Documents/Masters_2019/MastersProject/Data/SACTN_split.RData")
@@ -102,6 +102,10 @@ ggplot(data = SACTN_3yr , aes(x = date, y = insitu_temp)) +
 
 In this thesis, different remotely sensed SST datasets are used. Hence, these datasets all represent different resolutions at which data was obtained. We will make use of five different remotely sensed SST datasets, these include; the  MUR, AVHRR OISST, Pathfinder and G1SST data.
 Once the SST data were downloaded with a netCDF format i needed to convert this netCDfs to CSV
+
+Here i am suppose to overlap the MUR data with the insitu collected data but the insitu collected data is from 199-2000
+- find other overlapping more recent time with the in situ data?
+- 
 
 ## MUR dataset
 
@@ -134,7 +138,7 @@ MUR_SST <- MUR_SST %>%
   dplyr::rename(temp = nearest1)
 
 match_func <- function(df){
-  match <- SACTN_split  %>% 
+  match <- SACTN_split  %>%  
   left_join(df, by = c("site", "date")) %>% 
   na.trim()
   return(match)
@@ -169,7 +173,7 @@ Here I load the AVHRR CSV dataset.
 ```{r}
 # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
 
-OISSTDir <- "~/Documents/Masters_2019/MastersProject/Data"
+OISSTDir <- "~/Documents/Masters_2019/Data_SST"
 OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
             col.names = c("lon", "lat", "temp", "date"))
 
