@@ -38,7 +38,7 @@ load("Data/site_list_v4.2.RData")
 load("Data/SACTN_daily_v4.2.RData")
 ```
 
-Now we select only the sites occuring along the west coast. Thereafter, I include all the sites which had a time series of 10years or greater. This yield a 2 rows of data for Paternoster. I removed the row of data obtained by the DEA, thus ending up with all of the data being obtained from SAWS in this dataset. I then exclude the sites that do not fall within the upwelling cell. Once those sites were removed, we have a total of 9 sites. These are: Port Nolloth, Hondeklip baai, Doring baai, Lamberts Bay, Elands Bay, St Helena Bay, Paternoster, Saldanna and Yzerfontein.
+Now we select only the sites occuring along the west coast. Thereafter, I include all the sites which had a time series of 10years or greater. This yield a 2 rows of data for Paternoster. I removed the row of data obtained by the DEA, thus ending up with all of the data being obtained from SAWS in this dataset. I then exclude the sites that do not fall within the upwelling cell. Once those sites were removed, we have a total of 4 sites. These are: Port Nolloth, Lamberts Bay, Saldanna and Yzerfontein.
 
 ```{r}
 site_list_sub <- site_list %>% 
@@ -50,16 +50,18 @@ SACTN_daily_wc <- site_list_sub %>%
 upwelling_sites <- SACTN_daily_wc[-6,] # Here we had two rows of data for Paternoster; i removed the DEA row: All data here are now collected by SAWS 
 upwelling_sites <- upwelling_sites[-10:-14,] # Here i remove the sites that does not fall within the upwelling cell
 
+# Here I find a time series with the data occuring in the most recent years
+upwelling_sites <- upwelling_sites[c(-2, -3, -5, -6, -8),] 
+# save(upwelling_sites, file = "Data/upwelling_sites.RData")
+
 SACTN_daily_temps <- SACTN_daily_v4.2 %>% 
   left_join(site_list[,c(4,13)], by = "index") %>% 
   filter(index %in% upwelling_sites$index)
-
 # save(SACTN_daily_temps, file = "SACTN_daily_temps.RData")
 
 SACTN_daily_temps_indexsplit <- SACTN_daily_temps %>% 
   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>% 
   dplyr::rename(insitu_temp = temp)
-
 # save(SACTN_daily_temps_indexsplit, file = "Data/SACTN_daily_temps_indexsplit.RData")
 ```
 
@@ -88,7 +90,7 @@ Find where different sites have overlapping time series within this `SACTN_split
 load("~/Documents/Masters_2019/MastersProject/Data/SACTN_split.RData")
 
 SACTN_3yr <- SACTN_split %>% 
-  filter(year(date) %in% seq(1998, 1999, 2000))
+  filter(year(date) %in% seq(2015, 2016))
 ```
 
 
@@ -96,7 +98,7 @@ SACTN_3yr <- SACTN_split %>%
 ggplot(data = SACTN_3yr , aes(x = date, y = insitu_temp)) +
   geom_hline(aes(yintercept = mean(insitu_temp)), colour = "salmon") +
   geom_line() +
-  facet_wrap(~ site, nrow = 4) +
+  facet_wrap(~ site, nrow = 2) +
   theme_bw()
 ```
 
@@ -110,18 +112,12 @@ Here i am suppose to overlap the MUR data with the insitu collected data but the
 ## MUR dataset
 
 ```{r}
-MUR_Doringbaai <- read_csv("Data/MUR_nearest5pixels/MUR_Doringbaai_SST_timeseries_5nearest.csv")
-MUR_Elands_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Elands Bay_SST_timeseries_5nearest.csv")
-MUR_Hondeklipbaai <- read_csv("Data/MUR_nearest5pixels/MUR_Hondeklipbaai_SST_timeseries_5nearest.csv")
 MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
-MUR_Paternoster <- read_csv("Data/MUR_nearest5pixels/MUR_Paternoster_SST_timeseries_5nearest.csv")
 MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
 MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
-MUR_St_Helena_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_St Helena Bay_SST_timeseries_5nearest.csv")
 MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
 
-MUR_SST <- rbind(MUR_Doringbaai,MUR_Elands_Bay, MUR_Hondeklipbaai,MUR_Lamberts_Bay,MUR_Yzerfontein,
-                 MUR_Paternoster, MUR_Port_Nolloth,MUR_Saldanha_Bay, MUR_St_Helena_Bay) %>%
+MUR_SST <- rbind(MUR_Lamberts_Bay,MUR_Yzerfontein, MUR_Port_Nolloth,MUR_Saldanha_Bay) %>%
   dplyr::rename(site = station)
 
 MUR_SST$date <- (ymd(MUR_SST$date))
@@ -138,7 +134,7 @@ MUR_SST <- MUR_SST %>%
   dplyr::rename(temp = nearest1)
 
 match_func <- function(df){
-  match <- SACTN_split  %>%  
+  match <- SACTN_3yr  %>%  
   left_join(df, by = c("site", "date")) %>% 
   na.trim()
   return(match)
@@ -153,23 +149,15 @@ match_plot <- function(df){
 ggplot(aes(x = date, y = temp)) +
   geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
   geom_line() +
-  facet_wrap(~ site, nrow = 4) +
+  facet_wrap(~ site, nrow = 2) +
   theme_bw()
   return(plot1)
 }
 
-MUR_plot <- match_plot(df = MUR_SST)
+MUR_plot <- match_plot(df = insitu_MUR)
 ```
 
-################################
-
--  Need to plot a line graph with all SST dat and the insitu data on one graph
-
-################################
-
-
-Here I load the AVHRR CSV dataset. 
-
+Here I load the AVHRR OISST CSV dataset. 
 ```{r}
 # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
 
@@ -252,11 +240,10 @@ save(OISST_sites, file = "Data/OISST_sites.RData")
 ```
 
 ```{r}
-load("~/Documents/MastersProject/Data/combined_OISST_sites.RData")
+# load("~/Documents/MastersProject/Data/combined_OISST_sites.RData")
 ```
 
 ## Matching the Insitu data with the OISST SST data
-- Here there are many NA values because the OISST have many values collected per day where as the insitu temp only has 1
 
 ```{r}
 insitu_OISST <- match_func(df = OISST_sites)
@@ -266,7 +253,7 @@ insitu_OISST <- match_func(df = OISST_sites)
 OISST_plot <- match_plot(df = OISST_sites)
 ```
 
-
+## 
 
 
 
