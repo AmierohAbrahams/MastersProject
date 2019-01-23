@@ -66,35 +66,6 @@ SACTN_daily_temps_indexsplit <- SACTN_daily_temps %>%
 # save(SACTN_daily_temps_indexsplit, file = "Data/SACTN_daily_temps_indexsplit.RData")
 ```
 
-This code is testing out the wavelet analyses for the in situ temperature data
-
-```{r}
-SACTN_wavelet <- SACTN_daily_temps_indexsplit %>% 
-  filter(year(date) %in% seq(2015, 2016))
-  
-SACTN_wavelet.d <- SACTN_wavelet %>% 
-  dplyr::group_by(site, date) %>% 
-  dplyr::summarise(temp = mean(insitu_temp, na.rm = TRUE)) %>% 
-  dplyr::mutate(no = seq(1:n())) %>%
-  dplyr::ungroup() %>% 
-  dplyr::select(site, no, temp, date)
-
-ggplot(data = SACTN_wavelet, aes(x = date, y = insitu_temp)) +
-  geom_hline(aes(yintercept = mean(insitu_temp)), colour = "salmon") +
-  geom_line() +
-  facet_wrap(~ site, nrow = 4) +
-  theme_bw()
-
-auto.arima(dplyr::filter(SACTN_wavelet, site == "Port Nolloth")[, "insitu_temp"], max.p = 3, max.q = 3, stationary = FALSE, 
-           seasonal = FALSE)
-
-PN <- SACTN_wavelet.d %>% 
-  dplyr::filter(site == "Port Nolloth") %>% 
-  dplyr::select(temp, -date, -site) %>% 
-  dplyr::mutate(no = seq(1:n())) %>% 
-  dplyr::select(no, temp)
-```
-
 Here I add monthly and yearly column as well as a seasonal column. This is done as it allows us to compare temperature variation on a seasonal basis. Research studies done suggests that the intensity and duration of upwelling varies on a seasonal basis. Here we test this....... #Could plot on a seasonal basis##
 
 ```{r}
@@ -123,6 +94,16 @@ SACTN_3yr <- SACTN_split %>%
   filter(year(date) %in% seq(2015, 2016)) %>% 
   drop_na() # Removing NA values within the dataset
 ```
+
+```{r}
+ggplot(data = SACTN_3yr, aes(x = date, y = insitu_temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
 
 In this thesis, different remotely sensed SST datasets are used. Hence, these datasets all represent different resolutions at which data was obtained. We will make use of five different remotely sensed SST datasets, these include; the  MUR, AVHRR OISST, Pathfinder and G1SST data.
 Once the SST data were downloaded with a netCDF format i needed to convert this netCDfs to CSV
@@ -163,6 +144,9 @@ match_func <- function(df){
 
 insitu_MUR <- match_func(df = MUR_SST) %>%
   drop_na()
+
+insitu_MUR <- match_func(df = MUR_SST) %>%
+  drop_na()
 ```
 
 ```{r}
@@ -179,6 +163,16 @@ ggplot(aes(x = date, y = temp)) +
 MUR_plot <- match_plot(df = insitu_MUR)
 ```
 
+```{r}
+ggplot(data = insitu_MUR, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
+
 Here I load the AVHRR OISST CSV dataset. 
 ```{r}
 # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
@@ -192,7 +186,7 @@ OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
 
 # Quick visualisation of the data
 
-To explore the data i visualise the min temperatures along the South african coastline.
+To explore the data I visualise the min temperatures along the South african coastline.
 
 ```{r}
 OISST %>%
@@ -265,7 +259,9 @@ ggplot(data = OISST_sites, aes(x = date, y = temp)) +
 load("~/Documents/MastersProject/Data/OISST_sites.RData")
 
 OISST_sites <- OISST_sites %>% 
-  dplyr::rename(temp = temp_OISST)
+  dplyr::rename(temp = temp_OISST) %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  drop_na()
 ```
 
 ## Matching the Insitu data with the OISST SST data
@@ -275,12 +271,17 @@ insitu_OISST <- match_func(df = OISST_sites)
 ```
 
 ```{r}
-OISST_plot <- match_plot(df = OISST_sites)
+OISST_plot <- match_plot(df = insitu_OISST)
 ```
 
-## 
-
-
+```{r}
+ggplot(data = insitu_OISST, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
 
 
 
