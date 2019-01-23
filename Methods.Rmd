@@ -93,6 +93,8 @@ load("~/Documents/Masters_2019/MastersProject/Data/SACTN_split.RData")
 SACTN_3yr <- SACTN_split %>% 
   filter(year(date) %in% seq(2015, 2016)) %>% 
   drop_na() # Removing NA values within the dataset
+
+save(SACTN_3yr, file = "Data/SACTN_3yr.RData")
 ```
 
 ```{r}
@@ -171,7 +173,6 @@ theme(axis.text.x = element_text(angle = 45)) +
 theme_linedraw() +
 theme(legend.position = "top")
 ```
-
 
 Here I load the AVHRR OISST CSV dataset. 
 ```{r}
@@ -282,6 +283,130 @@ theme(axis.text.x = element_text(angle = 45)) +
 theme_linedraw() +
 theme(legend.position = "top")
 ```
+
+## CMC dataset
+
+```{r}
+CMC_Lamberts_Bay <- read_csv("Data/CMC/CMC_Lamberts Bay_SST_timeseries_5nearest.csv")
+CMC_Port_Nolloth <- read_csv("Data/CMC/CMC_Port Nolloth_SST_timeseries_5nearest.csv")
+CMC_Saldanha_Bay <- read_csv("Data/CMC/CMC_Saldanha Bay_SST_timeseries_5nearest.csv")
+CMC_Yzerfontein <- read_csv("Data/CMC/CMC_Yzerfontein_SST_timeseries_5nearest.csv")
+
+CMC_SST <- rbind(CMC_Lamberts_Bay,CMC_Port_Nolloth, CMC_Saldanha_Bay,CMC_Yzerfontein) %>%
+  dplyr::rename(site = station)
+
+CMC_SST$date <- (ymd(CMC_SST$date))
+
+# save(CMC_SST, file = "Data/CMC_SST.RData")
+```
+
+```{r}
+load("Data/CMC_SST.RData")
+
+CMC_SST <- CMC_SST %>% 
+  drop_na()
+
+CMC_SST <- CMC_SST %>% 
+  dplyr::rename(temp = nearest1)
+
+insitu_CMC <- match_func(df = CMC_SST) %>%
+  drop_na()
+CMC_plot <- match_plot(df = insitu_CMC)
+
+ggplot(data = insitu_CMC, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
+This code is testing out the wavelet analyses for the in situ temperature data. This is for the insitu temperature only. This plot is a wavelet analyses for all of the insitu collected data only
+
+```{r}
+load("Data/SACTN_3yr.RData")
+
+temp.d <- SACTN_3yr %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(insitu_temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+
+auto.arima(dplyr::filter(SACTN_3yr, site == "Port Nolloth")[, "insitu_temp"], max.p = 3, max.q = 3, stationary = FALSE, 
+           seasonal = FALSE)
+
+PN <- temp.d %>% 
+  dplyr::filter(site == "Port Nolloth") %>% 
+  dplyr::select(temp, -date, -site) %>% 
+  dplyr::mutate(no = seq(1:n())) %>% 
+  dplyr::select(no, temp)
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+
+site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = site.names[i])
+  }
+
+plot_fun <- function(x) {
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = attributes(x)$ref)
+  }
+
+# ... apply the function
+#op <- par(no.readonly = TRUE)
+par(mfrow = c(2, 2),
+    mar = c(2.5, 3.5, 2.5, 0.5),
+    mgp = c(2.5, 1, 0),
+    oma = c(0, 0, 1, 0))
+l_ply(PN_wave, plot_fun)
+#par(op)
+
+# Save each of the graph seperate- graph PN, LB, saldanha Bay and Yzerfontein
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
