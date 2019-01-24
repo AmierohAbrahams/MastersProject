@@ -368,49 +368,37 @@ wl.fun <- function(x) {
 
 PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
 
-site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
-for (i in 1:length(PN_wave)) {
-  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = site.names[i])
-  }
+# RWS: The order of these sites was incorrect
+# Rather get the names from the pre-existing data
+# site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
 
-plot_fun <- function(x) {
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+}
+
+# x <- PN_wave[[3]]
+
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/",plot_name,"_wavelet.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
   wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
            timelab = "Days", verbose = FALSE, useRaster = TRUE,
            periodlab = "Period", lwd = 1, graphics.reset = FALSE,
-           main = attributes(x)$ref)
-  }
+           main = plot_name)
+  dev.off()
+}
+
+ldply(PN_wave, plot_fun)
 
 # ... apply the function
 #op <- par(no.readonly = TRUE)
-par(mfrow = c(2, 2),
-    mar = c(2.5, 3.5, 2.5, 0.5),
-    mgp = c(2.5, 1, 0),
-    oma = c(0, 0, 1, 0))
-l_ply(PN_wave, plot_fun)
+# par(mfrow = c(2, 2),
+#     mar = c(2.5, 3.5, 2.5, 0.5),
+#     mgp = c(2.5, 1, 0),
+#     oma = c(0, 0, 1, 0))
 #par(op)
 
 # Save each of the graph seperate- graph PN, LB, saldanha Bay and Yzerfontein
+# l_ply(PN_wave, plot_fun)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
