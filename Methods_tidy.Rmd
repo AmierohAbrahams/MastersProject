@@ -96,12 +96,14 @@ SACTN_3yr <- SACTN_split %>%
 
 save(SACTN_3yr, file = "Data/SACTN_3yr.RData")
 
-ggplot(data = SACTN_3yr, aes(x = date, y = insitu_temp, colour = site)) +
+insitu_temp_plot <- ggplot(data = SACTN_3yr, aes(x = date, y = insitu_temp, colour = site)) +
 geom_line(aes(group = site)) +
 labs(x = "", y = "Temperature (°C)") +
 theme(axis.text.x = element_text(angle = 45)) +
-theme_linedraw() +
+#theme_linedraw() +
 theme(legend.position = "top")
+
+# ggsave(plot = insitu_temp_plot, filename = "Figures/insitu_temp.pdf")
 ```
 
 In this thesis, different remotely-sensed SST datasets are used. Hence, these datasets represent different resolutions at which data was obtained. We will make use of five remotely-sensed SST datasets, these include; the  MUR, AVHRR OISST, Pathfinder and G1SST data.
@@ -152,12 +154,15 @@ ggplot(aes(x = date, y = temp)) +
 }
 
 MUR_plot <- match_plot(df = insitu_MUR)
-ggplot(data = insitu_MUR, aes(x = date, y = temp, colour = site)) +
+mur_temp_plot <- ggplot(data = insitu_MUR, aes(x = date, y = temp, colour = site)) +
 geom_line(aes(group = site)) +
 labs(x = "", y = "Temperature (°C)") +
 theme(axis.text.x = element_text(angle = 45)) +
-theme_linedraw() +
+#theme_linedraw() +
 theme(legend.position = "top")
+
+# ggsave(plot = mur_temp_plot, filename = "Figures/mur_temp_plot.pdf")
+
 ```
 
 ## OISST dataset
@@ -230,7 +235,7 @@ ggplot(data = OISST_sites, aes(x = date, y = temp)) +
 
 # save(OISST_sites, file = "Data/OISST_sites.RData")
 # load("~/Documents/MastersProject/Data/OISST_sites.RData")
-
+load("~/Documents/Masters_2019/MastersProject/Data/OISST_sites.RData")
 OISST_sites <- OISST_sites %>% 
   dplyr::rename(temp = temp_OISST) %>%
   dplyr::mutate(date = as.Date(date)) %>% 
@@ -243,12 +248,13 @@ OISST_sites <- OISST_sites %>%
 insitu_OISST <- match_func(df = OISST_sites)
 OISST_plot <- match_plot(df = insitu_OISST)
 
-ggplot(data = insitu_OISST, aes(x = date, y = temp, colour = site)) +
+OISST_temp_plot <- ggplot(data = insitu_OISST, aes(x = date, y = temp, colour = site)) +
 geom_line(aes(group = site)) +
 labs(x = "", y = "Temperature (°C)") +
 theme(axis.text.x = element_text(angle = 45)) +
-theme_linedraw() +
+# theme_linedraw() +
 theme(legend.position = "top")
+# ggsave(plot = OISST_temp_plot, filename = "Figures/OISST_temp_plot.pdf")
 ```
 
 ## G1SST dataset
@@ -277,12 +283,13 @@ insitu_G1SST <- match_func(df = G1SSTsub_SST) %>%
   drop_na()
 G1SST_plot <- match_plot(df = insitu_G1SST )
 
-ggplot(data = insitu_G1SST, aes(x = date, y = temp, colour = site)) +
+G1SST_temp_plot <- ggplot(data = insitu_G1SST, aes(x = date, y = temp, colour = site)) +
 geom_line(aes(group = site)) +
 labs(x = "", y = "Temperature (°C)") +
 theme(axis.text.x = element_text(angle = 45)) +
-theme_linedraw() +
+# theme_linedraw() +
 theme(legend.position = "top")
+# ggsave(plot = G1SST_temp_plot, filename = "Figures/G1SST_temp_plot.pdf")
 ```
 
 ```{r}
