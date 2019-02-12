@@ -1,0 +1,984 @@
+---
+title: "Long_time_series"
+author: "Amieroh Abrahams"
+date: "04 February 2019"
+output: html_document
+---
+
+# Time series
+
+The first few lines of this script only looks at a time series of 10 years or greater. However, from line 355 a longer time series is used. This time series has a length of greater than 30 years and so only a few sites are used. With a longer time series I am able to detect for extreme events such as Marine Cold Spells (MCSs). 
+
+This script is very repetitive. Wavelet.Rmd creates a function to do this.
+
+# Libraries
+
+First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
+ 
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(plyr)
+library(lubridate)
+library(ggpubr)
+library(zoo)
+library(lubridate)
+library(FNN)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+library(heatwaveR)
+```
+
+### Load site list SACTN data
+Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS). The SACTN dataset comprise of 129 *in situ* coastal seawater temperatures derived from daily measurements over up to 40 years. The SACTN temperature dataset was compiled by measuring coastal temperatures at 129 sites along the coast of South Africa, daily from 1972 until 2017. 
+
+```{r load_files1, include=TRUE}
+load("Data/site_list_v4.2.RData")
+load("Data/SACTN_daily_v4.2.RData")
+```
+
+## Selecting the sites and creating new *in situ* datasets
+Now we select only the sites occuring along the west coast. Thereafter, I include all the sites which had a time series of 10 years or greater.
+
+```{r}
+
+# # Upwelling Cell 1:
+# site_list_sub <- site_list %>%
+#   filter(coast == "wc") %>%
+#   filter(length > 3650)
+# 
+# # upwelling_sites <- site_list_sub[-6,] # Here we had two rows of data for Paternoster; i removed the DEA row: All data here are now collected by SAWS
+# upwelling_sites <- upwelling_sites[-10:-14,]
+# 
+# # # # Here I find a time series with the data with a relativley long time series
+# UC_1 <- upwelling_sites[c(-2, -3, -5, -6, -8),]
+# save(UC_1, file = "Data/UC_1.RData")
+# SACTN_daily_temps <- SACTN_daily_v4.2 %>%
+#   left_join(site_list[,c(4,13)], by = "index") %>%
+#   filter(index %in% upwelling_sites$index)
+# save(SACTN_daily_temps, file = "Data/SACTN_daily_temps.RData")
+# # 
+# SACTN_US1 <- SACTN_daily_temps %>%
+#   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>%
+#   dplyr::rename(insitu_temp = temp)
+# save(SACTN_US1, file = "Data/SACTN_US1.RData")
+
+# Upwelling Cell 2:
+# site_list_sub_UC <- site_list %>%
+#   filter(coast == "wc") %>%
+#   filter(length > 3650)
+# 
+# upwelling_sites_UC <- site_list_sub_UC[-1:-8,]
+# UC_2 <- upwelling_sites_UC[c(-2,-5),] # New sites falling within the upwelling cell before yzerfontein
+# save(UC_2, file = "Data/UC_2.RData")
+# 
+# 
+# SACTN_daily_temps_UC <- SACTN_daily_v4.2 %>%
+#   left_join(site_list[,c(4,13)], by = "index") %>%
+#   filter(index %in% upwelling_sites_UC$index)
+# save(SACTN_daily_temps, file = "Data/SACTN_daily_temps.RData")
+# 
+# SACTN_US2 <- SACTN_daily_temps_UC %>%
+#   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>%
+#   dplyr::rename(insitu_temp = temp)
+# 
+# save(SACTN_US2, file = "Data/SACTN_US2.RData")
+
+####################################################################################
+
+combined_US <- rbind(UC_1,UC_2)
+#save(combined_US, file = "Data/combined_US.RData")
+SACTN_temps_US <- SACTN_daily_v4.2 %>%
+  left_join(site_list[,c(4,13)], by = "index") %>%
+  filter(index %in% combined_US$index)
+
+SACTN_temps_US <- SACTN_temps_US %>%
+  separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>%
+  dplyr::rename(insitu_temp = temp)
+
+# save(SACTN_temps_US, file = "Data/SACTN_temps_US.RData")
+```
+
+I now create two datasets, `SACTN_split_US1` and `SACTN_split_US2`. These two datasets represents different groups of sites within the upwelling center based on the location of each of the sites. `SACTN_split_US1`: Port Nolloth, Lamberts Bay, Saldanna and Yzerfontein. `SACTN_split_US2`: Dassen Island, Sea Point, Hout Bay and Kommetjie. Here I also add monthly, yearly and seasonal column. This allows us to compare temperature variation on a seasonal basis. Research studies done suggests that the intensity and duration of upwelling varies on a seasonal basis. 
+
+```{r}
+SACTN_monthly <- function(df) {
+  SACTN_split_monthly <- df %>%
+  mutate(month = month(date, abbr = T, label = T),
+         year = year(date)) %>%
+  group_by(index, month, year) %>%
+    mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",       
+                           ifelse(month %in% c("Apr", "May", "Jun"), "Autumn",
+                                ifelse(month %in% c("Jul", "Aug", "Sep"), "Winter",
+                                       ifelse(month %in% c("Oct", "Nov", "Dec"), "Spring","Error")))))
+  return(SACTN_split_monthly)
+}
+
+# SACTN_split_US1 <- SACTN_monthly(df = SACTN_US1)
+# SACTN_split_US2 <- SACTN_monthly(df = SACTN_US2)
+# save(SACTN_split_US1, file = "SACTN_split_US1.RData")
+# save(SACTN_split_US2, file = "SACTN_split_US2.RData")
+```
+
+Find where different sites have overlapping time series within this `SACTN_temps_US` dataset. Finding a long time series. 
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/combined_US.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/SACTN_temps_US.RData")
+# Find a period where each of the sites within that overlap. 
+
+overlap_ts <- SACTN_temps_US %>% 
+  filter(year(date) %in% seq(1992, 2016)) %>% # The length of the time may vary depending on the question
+  drop_na() # Removing NA values within the dataset
+save(overlap_ts, file = "Data/overlap_ts.RData")
+
+
+temp_plot <- function(df){
+  plot <- ggplot(data = df, aes(x = date, y = insitu_temp, colour = site)) +
+    geom_line(aes(group = site)) +
+    labs(x = "", y = "Temperature (°C)") +
+    theme(axis.text.x = element_text(angle = 45)) +
+    theme(legend.position = "top")
+}
+
+SACTN_temps_US_plot <- temp_plot(df = overlap_ts)
+```
+
+In this thesis, different remotely-sensed SST datasets are used. Hence, these datasets represent different resolutions at which data was obtained. We will make use of five remotely-sensed SST datasets, these include; the  MUR, AVHRR OISST, K10 and G1SST data. **MODIS SST data need to be downloaded and used too**
+
+## MUR dataset
+```{r}
+MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
+MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
+MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
+MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
+MUR_Dassen_Island <- read_csv("Data/MUR_nearest5pixels/MUR_Dassen Island_SST_timeseries_5nearest.csv")
+MUR_Hout_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Hout Bay_SST_timeseries_5nearest.csv")
+MUR_Kommetjie <- read_csv("Data/MUR_nearest5pixels/MUR_Kommetjie_SST_timeseries_5nearest.csv")
+MUR_Sea_Point <- read_csv("Data/MUR_nearest5pixels/MUR_Sea Point_SST_timeseries_5nearest.csv")
+MUR_Oudekraal <- read_csv("Data/MUR_nearest5pixels/MUR_Oudekraal_SST_timeseries_5nearest.csv")
+
+MUR_SST <- rbind(MUR_Lamberts_Bay,MUR_Yzerfontein, MUR_Port_Nolloth,MUR_Saldanha_Bay, MUR_Dassen_Island, MUR_Hout_Bay, MUR_Kommetjie, MUR_Sea_Point, MUR_Oudekraal) %>%
+  dplyr::rename(site = station)
+
+MUR_SST$date <- (ymd(MUR_SST$date))
+# save(MUR_SST, file = "Data/MUR_SST.RData")
+
+load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST.RData")
+MUR_SST <- MUR_SST %>% 
+  drop_na()
+```
+
+Here I write a function to match the remotely-sensed SST to the *in-situ* collected SST
+
+```{r}
+MUR_SST <- MUR_SST %>% 
+  dplyr::rename(temp = nearest1) # nearest1- 1 pixel as applied to the OISST data
+
+match_func <- function(df){
+  match <- overlap_ts  %>%  
+  left_join(df, by = c("site", "date")) %>% 
+  na.trim()
+  return(match)
+}
+insitu_MUR <- match_func(df = MUR_SST) %>%
+  drop_na()
+# save(insitu_MUR, file = "Data/insitu_MUR.RData")
+
+match_plot <- function(df){
+  plot1 <- df %>% 
+ggplot(aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 2) +
+  theme_bw()
+  return(plot1)
+}
+MUR_plot <- match_plot(df = insitu_MUR)
+
+
+temp_plot <- function(df){
+  temp_plot <- df %>% 
+  ggplot(aes(x = date, y = temp, colour = site)) +
+    geom_line(aes(group = site)) +
+    labs(x = "", y = "Temperature (°C)") +
+    theme(axis.text.x = element_text(angle = 45)) +
+    theme(legend.position = "top")
+}
+MUR_plot <- temp_plot(df = insitu_MUR)
+```
+
+## OISST dataset
+```{r}
+# # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
+# 
+# OISSTDir <- "~/Documents/Masters_2019/Data_SST"
+# OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
+#             col.names = c("lon", "lat", "temp", "date"))
+# 
+# #OISST <- as.tibble(fread("~/Documents/Masters_2019/MastersProject/Data/csvavhrr-only-v2-19810901-20180630.csv"))
+# # Quick visualisation of the data
+# # To explore the data I visualise the min temperatures along the South african coastline.
+# 
+# OISST %>%
+#   filter(date == min(date)) %>%
+#   ggplot(aes(x = lon, y = lat)) +
+#   geom_raster(aes(fill = temp))
+# ggsave(plot = OISST, filename = "Figures/OISST")
+```
+
+## Here I find the nearest SST pixels
+
+Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SST pixel to the insitu collected sites. 
+
+```{r}
+# unique_pixel <- OISST %>%
+#   select(lon, lat) %>%
+#   unique()
+# 
+# # Select nearest 1 pixels (k = 1)
+# # here we use knnx to find the closes 1 pixels to the insitu sites
+# match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+#                           query = as.matrix(combined_US[,5:6]), k = 1)
+# 
+# # Select SST pixels nearest to insitu sites
+# pixel_match <- unique_pixel[match_index,] %>%
+#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+#   mutate(site = combined_US$site)
+# 
+# ## Subsetting the OISST data to match the upwelling sites within the in situ collected temperature data
+# OISST_match <- OISST %>%
+#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+#   filter(combi %in% pixel_match$combi)
+# 
+# ## Visualisation
+# ggplot(data = OISST_match, aes(x = date, y = temp_OISST)) +
+#   geom_line() +
+#   facet_wrap(~combi)
+# ggsave(plot = OISST_match, filename = "Figures/combined_OISST_match")
+# 
+# OISST_match %>%
+#   filter(date == max(date)) %>%
+#   ggplot(aes(x = lon, y = lat)) +
+#   geom_raster(aes(fill = temp))
+```
+
+```{r}
+# OISST_sites <- OISST_match %>%
+#   left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
+#   dplyr::rename(temp_OISST =temp)
+# 
+# # Check that the pixel that is shared is duplicated
+# # unique(combined_OISST_sites$site)
+# # Visualise time series
+# ggplot(data = OISST_sites, aes(x = date, y = temp)) +
+#   geom_line() +
+#   facet_wrap(~site)
+
+# save(OISST_sites, file = "Data/OISST_sites.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/OISST_sites.RData")
+OISST_sites <- OISST_sites %>% 
+  dplyr::rename(temp = temp_OISST) %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  drop_na()
+```
+
+## Matching the Insitu data with the OISST SST data
+```{r}
+insitu_OISST <- match_func(df = OISST_sites)
+# save(insitu_OISST, file = "Data/insitu_OISST.RData")
+OISST_plot <- match_plot(df = insitu_OISST)
+OISST_temp_plot <- temp_plot(df = insitu_OISST)
+```
+
+## G1SST dataset
+```{r}
+Lamberts_Bay <- read_csv("Data/G1SST_sub/Lamberts Bay_SST_timeseries_5nearest.csv")
+Port_Nolloth <- read_csv("Data/G1SST_sub/Port Nolloth_SST_timeseries_5nearest.csv")
+Saldanha_Bay <- read_csv("Data/G1SST_sub/Saldanha Bay_SST_timeseries_5nearest.csv")
+Yzerfontein <- read_csv("Data/G1SST_sub/Yzerfontein_SST_timeseries_5nearest.csv")
+Dassen_Island <- read_csv("Data/G1SST_sub/Dassen Island_SST_timeseries_5nearest.csv")
+Hout_Bay_SST <- read_csv("Data/G1SST_sub/Hout Bay_SST_timeseries_5nearest.csv")
+Kommetjie_SST <- read_csv("Data/G1SST_sub/Kommetjie_SST_timeseries_5nearest.csv")
+Oudekraal_SST <- read_csv("Data/G1SST_sub/Oudekraal_SST_timeseries_5nearest.csv")
+Sea_Point_SST<- read_csv("Data/G1SST_sub/Sea Point_SST_timeseries_5nearest.csv")
+
+G1SSTsub_SST <- rbind(Lamberts_Bay,Port_Nolloth, Saldanha_Bay, Yzerfontein, Dassen_Island, Hout_Bay_SST, Kommetjie_SST, Oudekraal_SST, Sea_Point_SST) %>%
+  dplyr::rename(site = station)
+
+G1SSTsub_SST$date <- (ymd(G1SSTsub_SST$date))
+save(G1SSTsub_SST, file = "Data/G1SSTsub_SST.RData")
+
+# load("Data/G1SSTsub_SST.RData")
+
+G1SSTsub_SST <- G1SSTsub_SST %>% 
+  drop_na() %>% 
+  dplyr::rename(temp = nearest1)
+
+insitu_G1SST <- match_func(df = G1SSTsub_SST) 
+# save(insitu_G1SST, file = "Data/insitu_G1SST.RData")
+G1SST_plot <- match_plot(df = insitu_G1SST )
+G1SST_temp_plot <- temp_plot(df = insitu_G1SST)
+```
+
+# K10
+```{r}
+Lamberts_Bay <- read_csv("Data/K10/K10_Lamberts Bay_SST_timeseries_5nearest.csv")
+Port_Nolloth <- read_csv("Data/K10/K10_Port Nolloth_SST_timeseries_5nearest.csv")
+Saldanha_Bay <- read_csv("Data/K10/K10_Saldanha Bay_SST_timeseries_5nearest.csv")
+Yzerfontein <- read_csv("Data/K10/K10_Yzerfontein_SST_timeseries_5nearest.csv")
+Dassen_Island <- read_csv("Data/K10/K10_Dassen Island_SST_timeseries_5nearest.csv")
+Hout_Bay <- read_csv("Data/K10/K10_Hout Bay_SST_timeseries_5nearest.csv")
+Kommetjie <- read_csv("Data/K10/K10_Kommetjie_SST_timeseries_5nearest.csv")
+Oudekraal <- read_csv("Data/K10/K10_Oudekraal_SST_timeseries_5nearest.csv")
+Sea_Point <- read_csv("Data/K10/K10_Sea Point_SST_timeseries_5nearest.csv")
+
+K10_SST <- rbind(Lamberts_Bay, Yzerfontein, Port_Nolloth, Saldanha_Bay, Dassen_Island, Hout_Bay, Kommetjie, Oudekraal, Sea_Point) %>%
+  dplyr::rename(site = station)
+K10_SST$date <- (ymd(K10_SST$date))
+# save(K10_SST, file = "Data/K10_SST.RData")
+
+load("~/Documents/Masters_2019/MastersProject/Data/K10_SST.RData")
+K10_SST <- K10_SST %>% 
+  drop_na()
+K10_SST <- K10_SST %>% 
+  dplyr::rename(temp = nearest1)
+
+insitu_K10 <- match_func(df = K10_SST) 
+# save(insitu_K10, file = "Data/insitu_K10.RData")
+K10_plot <- match_plot(df = insitu_K10)
+k10_temp_plot <- temp_plot(df = insitu_K10)
+```
+
+# Long term time series (>30years)
+
+Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow, I find a long term time series (1996-2016) of seawater temperature.
+
+# Anatomy of marine cold spells within the upwelling center
+Make use of the make_whole_fast function within the heatwaveR package. This function constructs a continuous, uninterrupted time series of temperatures (faster).
+
+## Detecting cold spells based on the original datasets
+
+```{r}
+site_list_sub <- site_list %>% 
+  filter(coast == "wc") %>% 
+  filter(length > 10950) #time series of greater than 30years 
+# This yield 5sites: Porrt Nolloth, Lamberts Bay, Saldanha Bay, Sea Point and Hout Bay
+
+
+# # The upwelling cell was then divided into two groups:
+# # Port Nolloth, Lamberts Bay and Saldanha Bay was grouped together
+# # Sea Point and Hout Bay were grouped together
+# US_O1 <- site_list_sub[c(1:3),] 
+# US_02 <- site_list_sub[c(4:5),] 
+# 
+# SACTN_temps_US_O1 <- SACTN_daily_v4.2 %>% 
+#   left_join(site_list[,c(4,13)], by = "index") %>% 
+#   filter(index %in% US_O1$index)
+# # save(SACTN_temps_US_O1, file = "Data/SACTN_temps_US_O1.RData")
+# 
+# SACTN_temps_US_02 <- SACTN_daily_v4.2 %>% 
+#   left_join(site_list[,c(4,13)], by = "index") %>% 
+#   filter(index %in% US_02$index)
+# # save(SACTN_temps_US_02, file = "Data/SACTN_temps_US_02.RData")
+
+SACTN_temps_US <- SACTN_daily_v4.2 %>% 
+  left_join(site_list[,c(4,13)], by = "index") %>% 
+  filter(index %in% site_list_sub$index)
+# save(SACTN_temps_US, file = "Data/SACTN_temps_US.RData")
+
+SACTN_split <- SACTN_temps_US %>% 
+  separate(index, into = c("site", "src"), sep = "/", remove = FALSE)
+
+SACTN_PN <- SACTN_split %>%
+  filter(site == "Port Nolloth") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_LB <- SACTN_split %>%
+  filter(site == "Lamberts Bay") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_SB <- SACTN_split %>%
+  filter(site == "Saldanha Bay") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_SP <- SACTN_split %>%
+  filter(site == "Sea Point") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_HB <- SACTN_split %>%
+  filter(site == "Hout Bay") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+```
+
+#SACTN
+```{r}
+ts <- ts2clm(SACTN_PN, climatologyPeriod = c("1974-01-01", "2016-12-31"),
+             pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology # Show a portion of the climatology
+MCS_events <- res$event[1:5,1:10] # Show some of the cold-spells
+# MCS <- MCS[14408:15503,] # Get the years from 2013 - 2015
+
+MCS_SACTN_PN <- event_line(res, spread = 100, metric = "intensity_cumulative",
+           start_date = "1974-01-01", end_date = "1977-12-31")
+
+#ggsave(plot = MCS1974, filename = "MCS1974.png")
+```
+
+# MUR
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST.RData")
+MUR_SST_PN <- MUR_SST %>%
+  filter(site == "Port Nolloth") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_PN, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_PN") +
+  theme(legend = "Bottom")
+
+MUR_SST_LB <- MUR_SST %>% 
+  filter(site == "Lamberts Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_LB, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_LB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_LB")
+
+MUR_SST_YZ <- MUR_SST %>%
+  filter(site == "Yzerfontein") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_YZ, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_YZ <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_YZ")
+
+MUR_SST_SB <- MUR_SST %>%
+  filter(site == "Saldanha Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_SB, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_SB")
+
+MUR_SST_DI <- MUR_SST %>%
+  filter(site == "Dassen Island") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_DI, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_DI <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_DI")
+
+MUR_SST_HB <- MUR_SST %>%
+  filter(site == "Hout Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_HB, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_HB")
+
+MUR_SST_SP <- MUR_SST %>%
+  filter(site == "Sea Point") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_SP, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_SP <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_SP")
+
+MUR_SST_O <- MUR_SST %>%
+  filter(site == "Oudekraal") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_O, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_O <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_O")
+
+MUR_SST_Kom <- MUR_SST %>%
+  filter(site == "Kommetjie") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_Kom, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_MUR_Kom <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_Kom")
+
+combined_MUR <- ggarrange(MCS_MUR_PN, MCS_MUR_LB, MCS_MUR_O, MCS_MUR_HB, MCS_MUR_SP, MCS_MUR_Kom, MCS_MUR_DI, MCS_MUR_SB, MCS_MUR_YZ, ncol = 3, nrow = 3)
+```
+
+# G1SST
+```{r}
+load("Data/G1SSTsub_SST.RData")
+
+G1SSTsub_SST_PN <- G1SSTsub_SST %>% 
+  filter(site == "Port Nolloth") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_PN, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_PN")
+
+G1SSTsub_SST_LB <- G1SSTsub_SST %>% 
+  filter(site == "Lamberts Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_LB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_LB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_LB")
+
+G1SSTsub_SST_SB <- G1SSTsub_SST %>% 
+  filter(site == "Saldanha Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_SB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_SB")
+
+G1SSTsub_SST_YZ <- G1SSTsub_SST %>% 
+  filter(site == "Yzerfontein") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_YZ, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_YZ <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_YZ")
+
+G1SSTsub_SST_HB <- G1SSTsub_SST %>% 
+  filter(site == "Hout Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_HB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_HB")
+
+G1SSTsub_SST_SP <- G1SSTsub_SST %>% 
+  filter(site == "Sea Point") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_SP, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_SP <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_SP")
+
+
+G1SSTsub_SST_O <- G1SSTsub_SST %>% 
+  filter(site == "Oudekraal") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_O, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_O <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_O")
+
+
+G1SSTsub_SST_Kom <- G1SSTsub_SST %>% 
+  filter(site == "Kommetjie") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_Kom, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_Kom <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_Kom")
+
+G1SSTsub_SST_DI <- G1SSTsub_SST %>% 
+  filter(site == "Dassen Island") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_DI, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_DI <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_DI")
+
+G1SSTsub_SST_SB <- G1SSTsub_SST %>% 
+  filter(site == "Saldanha Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_SB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_SB")
+
+G1SSTsub_SST_HB <- G1SSTsub_SST %>% 
+  filter(site == "Hout Bay") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(G1SSTsub_SST_HB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_g1sst_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1991-09-01", end_date = "1992-12-30") +
+  ggtitle("G1SST_HB")
+
+combined_G1SST <- ggarrange(MCS_g1sst_PN, MCS_g1sst_LB, MCS_g1sst_O, MCS_g1sst_SP, MCS_g1sst_Kom, MCS_g1sst_DI, MCS_g1sst_YZ, MCS_g1sst_SB, MCS_g1sst_HB, ncol = 3, nrow = 3)
+```
+
+# OISST 
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/OISST_sites.RData")
+OISST_sites <- OISST_sites %>% 
+  dplyr::rename(temp = temp_OISST) %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  drop_na()
+
+OISST_PN <- OISST_sites %>% 
+  filter(site == "Port Nolloth") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_PN, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_PN")
+
+OISST_LB <- OISST_sites %>% 
+  filter(site == "Lamberts Bay") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_LB, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_LB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_LB")
+
+OISST_SB <- OISST_sites %>% 
+  filter(site == "Saldanha Bay") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_SB, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_SB")
+
+OISST_YZ <- OISST_sites %>% 
+  filter(site == "Yzerfontein") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_YZ, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_YZ <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_YZ")
+
+OISST_DI <- OISST_sites %>% 
+  filter(site == "Dassen Island") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_DI, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_DI <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_DI")
+
+OISST_SP <- OISST_sites %>% 
+  filter(site == "Sea Point") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_SP, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_SP <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_SP")
+
+OISST_Kom <- OISST_sites %>% 
+  filter(site == "Kommetjie") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_Kom, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_Kom <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_Kom")
+
+OISST_O <- OISST_sites %>% 
+  filter(site == "Oudekraal") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_O, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_O <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_O")
+
+OISST_HB <- OISST_sites %>% 
+  filter(site == "Hout Bay") %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(OISST_HB, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
+res <- detect_event(ts, coldSpells = TRUE)
+MCS <- res$climatology
+MCS_OISST_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2016-09-01", end_date = "2018-06-30") +
+  ggtitle("OISST_HB")
+
+combined_OISST <- ggarrange(MCS_OISST_PN, MCS_OISST_LB, MCS_OISST_SB, MCS_OISST_YZ, MCS_OISST_O, MCS_OISST_HB, MCS_OISST_Kom,MCS_OISST_SP, MCS_OISST_DI)
+```
+
+# K10
+Time series is less than 10 years and so the detection of MCS is not effective. 
+heatwaveR package may be applied to datasets that have a climatological period of >10years
+```{r}
+# load("~/Documents/Masters_2019/MastersProject/Data/K10_SST.RData")
+# 
+# K10_PN<- K10_SST %>% 
+#   filter(site == "Port Nolloth") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_PN, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_PN <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_PN")
+# 
+# K10_LB <- K10_SST %>% 
+#   filter(site == "Lamberts Bay") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_LB, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_LB <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_LB")
+# 
+# K10_SB <- K10_SST %>% 
+#   filter(site == "Saldanha Bay") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_SB, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_SB <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_SB")
+# 
+# K10_YZ <- K10_SST %>% 
+#   filter(site == "Yzerfontein") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_YZ, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_YZ <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_YZ")
+# 
+# K10_SP <- K10_SST %>% 
+#   filter(site == "Sea Point") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_SP, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_SP <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_SP")
+# 
+# K10_HB <- K10_SST %>% 
+#   filter(site == "Hout Bay") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_HB, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_HB <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_HB")
+# 
+# K10_Kom <- K10_SST %>% 
+#   filter(site == "Kommetjie") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_Kom, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_Kom <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_Kom")
+# 
+# K10_O <- K10_SST %>% 
+#   filter(site == "Oudekraal") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_O, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_O <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_O")
+# 
+# K10_DI <- K10_SST %>% 
+#   filter(site == "Dassen Island") %>% 
+#   dplyr::rename(temp = nearest1) %>% 
+#   select(date, temp) %>% 
+#   dplyr::rename(t = date)
+# 
+# ts <- ts2clm(K10_DI, climatologyPeriod = c("2008-04-02", "2015-12-31"), pctile = 10)
+# res <- detect_event(ts, coldSpells = TRUE)
+# MCS <- res$climatology
+# MCS_K10_DI <- event_line(res, spread = 100, metric = "intensity_cumulative",
+#            start_date = "2013-04-02", end_date = "2015-12-31") +
+#   ggtitle("K10_DI")
+# 
+# 
+# combined_K10 <- ggarrange(MCS_K10_PN, MCS_K10_LB, MCS_K10_DI, MCS_K10_SB, MCS_K10_SP, MCS_K10_O, MCS_K10_Kom, MCS_K10_HB, MCS_K10_YZ, ncol = 3, nrow = 3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
