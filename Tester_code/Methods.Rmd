@@ -94,7 +94,7 @@ SACTN_3yr <- SACTN_split %>%
   filter(year(date) %in% seq(2015, 2016)) %>% 
   drop_na() # Removing NA values within the dataset
 
-save(SACTN_3yr, file = "Data/SACTN_3yr.RData")
+# save(SACTN_3yr, file = "Data/SACTN_3yr.RData")
 ```
 
 ```{r}
@@ -179,8 +179,8 @@ Here I load the AVHRR OISST CSV dataset.
 # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
 
 OISSTDir <- "~/Documents/Masters_2019/Data_SST"
-OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
-            col.names = c("lon", "lat", "temp", "date"))
+# OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
+#             col.names = c("lon", "lat", "temp", "date"))
 
 #OISST <- as.tibble(fread("~/Documents/Masters_2019/MastersProject/Data/csvavhrr-only-v2-19810901-20180630.csv"))
 ```
