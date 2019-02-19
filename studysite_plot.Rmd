@@ -132,7 +132,7 @@ fig1 <- ggplot() +#coord_equal() +
   geom_path(data = sa_provinces_new, aes(x = long, y = lat, group = group)) +
   geom_polygon(data = wcBox, aes(x = lon, y = lat, group = group), alpha = 0.20, 
                colour = "bisque1", fill = "bisque1") +
-  geom_point(data = metaData2, aes(x = lon, y = lat, colour = "white"), alpha = 0.8, size = 1.6) +
+  geom_point(data = metaData2, aes(x = lon, y = lat), alpha = 0.8, size = 1.6) +
   geom_point(data = site_pixels, aes(x = lon, y = lat), colour = "white", shape = 0, alpha = 0.8, size = 2.1) +
   geom_rect(data = test, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
             alpha = 0.4, colour = "red", size = 0.1, linetype = 1) +
