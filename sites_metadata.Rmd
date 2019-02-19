@@ -1,0 +1,123 @@
+---
+title: "sites_metadata"
+author: "Amieroh Abrahams"
+date: "19 February 2019"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(viridis)
+library(plyr)
+library(zoo)
+library(lubridate)
+library(maptools)
+library(sp)
+library(geosphere)
+library(marmap)
+library(PBSmapping)
+library(scales)
+library(grid)
+library(gridExtra)
+library(mapproj)
+```
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/site_list_v4.2.RData")
+
+# # Upwelling Cell 1:
+# site_list_sub <- site_list %>%
+#   filter(coast == "wc") %>%
+#   filter(length > 3650)
+#
+# # upwelling_sites <- site_list_sub[-6,] # Here we had two rows of data for Paternoster; i removed the DEA row: All data here are now collected by SAWS
+# upwelling_sites <- upwelling_sites[-10:-14,]
+#
+# # # # Here I find a time series with the data with a relativley long time series
+# UC_1 <- upwelling_sites[c(-2, -3, -5, -6, -8),]
+# save(UC_1, file = "Data/UC_1.RData")
+# SACTN_daily_temps <- SACTN_daily_v4.2 %>%
+#   left_join(site_list[,c(4,13)], by = "index") %>%
+#   filter(index %in% upwelling_sites$index)
+# save(SACTN_daily_temps, file = "Data/SACTN_daily_temps.RData")
+# #
+# SACTN_US1 <- SACTN_daily_temps %>%
+#   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>%
+#   dplyr::rename(insitu_temp = temp)
+# save(SACTN_US1, file = "Data/SACTN_US1.RData")
+
+# Upwelling Cell 2:
+# site_list_sub_UC <- site_list %>%
+#   filter(coast == "wc") %>%
+#   filter(length > 3650)
+#
+# upwelling_sites_UC <- site_list_sub_UC[-1:-8,]
+# UC_2 <- upwelling_sites_UC[c(-2,-5),] # New sites falling within the upwelling cell before yzerfontein
+# save(UC_2, file = "Data/UC_2.RData")
+#
+#
+# SACTN_daily_temps_UC <- SACTN_daily_v4.2 %>%
+#   left_join(site_list[,c(4,13)], by = "index") %>%
+#   filter(index %in% upwelling_sites_UC$index)
+# save(SACTN_daily_temps, file = "Data/SACTN_daily_temps.RData")
+#
+# SACTN_US2 <- SACTN_daily_temps_UC %>%
+#   separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>%
+#   dplyr::rename(insitu_temp = temp)
+#
+# save(SACTN_US2, file = "Data/SACTN_US2.RData")
+
+# combined_US <- rbind(UC_1,UC_2)
+# save(combined_US, file = "Data/combined_US.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/combined_US.RData")
+metaData2 <- combined_US
+```
+
+## Calculate mean meta data for each coast and add to metaData2
+# Dictate coastal groupings
+
+wc <- c("Hout Bay", "Kommetjie", "Port Nolloth", "Sea Point", "Lamberts Bay", "Saldanha Bay", "Yzerfontein", "Dassen Island", "Oudekraal")
+
+```{r}
+west <- metaData2[metaData2$site %in% wc,]
+west$coast <- "west"
+west2 <- data.frame(site = "west coast", coast = "west", lon = round(mean(west$lon), 4),
+                    lat = round(mean(west$lat), 4), depth = round(mean(west$depth), 1),
+                   type = NA, 'start date' = min(west$`start date`),'end date' = max(west$`end date`), 
+                   length = round(mean(west$length), 0), 'temp days' = round(mean(west$'temp days'), 0), 
+                   'NA days' = round(mean(west$'NA days'), 0), 'NA%' = round(mean(west$`NA%`),1), 
+                   mean = round(mean(west$mean),1), sd = round(mean(west$sd),1), 
+                   min = round(mean(west$min),1), max = round(mean(west$max),1))
+
+names(west2)[c(7:8,10:12)] <- c("start date", "end date", "temp days", "NA days", "NA%")
+metaData2 <- data.frame(ID = seq(1, length(metaData2$site),1), metaData2)
+metaData2$lon <- round(metaData2$lon,2); metaData2$lat <- round(metaData2$lat,2)
+metaData2$depth <- NULL; metaData2$NA.days <- NULL
+
+save(metaData2, file = "Data/metaData2.Rdata")
+```
+
+# Creating a quick visualisation
+
+```{r}
+load("Data/south_africa_coast.RData")
+load("Data/sa_provinces_new.RData")
+
+
+# Setting the plotting parameters
+sa_lats <- c(-35.5, -26); sa_lons <- c(14, 34)
+
+sa_site <- ggplot() + 
+  geom_polygon(data = south_africa_coast, aes(x = long, y = lat, group = group), 
+               show_guide = FALSE, fill = "grey80") +
+  geom_path(data = sa_provinces_new, aes(x = long, y = lat, group = group), colour = "grey50") +
+  geom_point(data = metaData2, aes(x = lon, y = lat, colour = metaData2$coast, 
+                                   shape = metaData2$type), alpha = 0.8, size = 2.2) +
+  guides(colour = guide_legend(title = "coast"),
+         shape = guide_legend(title = "type")) 
+
+ggsave("Figures/map01.pdf", width = 7.5, height = 4.5, pointsize = 10)
+```
+
+
+

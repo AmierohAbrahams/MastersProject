@@ -5,7 +5,7 @@ date: "04 February 2019"
 output: html_document
 ---
 
-# Time series
+# Script Info (Time series)
 
 The first few lines of this script only looks at a time series of 10 years or greater. However, from line 360 a longer time series is used. This time series has a length of greater than 30 years and so only a few sites are used. With a longer time series I am able to detect for extreme events such as Marine Cold Spells (MCSs). 
 
