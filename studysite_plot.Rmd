@@ -29,9 +29,6 @@ library(fossil)
 load("Data/metaData2.Rdata")
 ```
 
-
-
-
 ```{r}
 # Transects
 site_transects <- data.frame()
