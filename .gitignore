@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+
+
+# Contains all the necessary data and scripts to replicate the analyses
