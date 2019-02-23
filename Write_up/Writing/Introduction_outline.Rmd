@@ -1,5 +1,5 @@
 ---
-title: "Introduction_outline"
+title: "Dynamical properties of the Benguela Current as seen through a cold-spell algorithm."
 author: "Amieroh Abrahams"
 date: "13 January 2019"
 output:
