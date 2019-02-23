@@ -1,0 +1,228 @@
+---
+title: "Wind_analyses"
+author: "Amieroh Abrahams"
+date: "18 February 2019"
+output: html_document
+---
+
+# Script Info
+The aim of this script is to plot wind rose diagrams representing the wind directions for the sites along the west coast of South Africa. The data used to plot the wind rose diagrams will correspond with the data used to plot the wavelet analyses. Using this we will be able to make deductions as to weather or not the intensity and duration of upwelling varied as a result of wind direction.
+
+The wind data used in this analyses were obtained from the SAWS as well as the NCEP wind data. *Other wind datasets still to be used*
+
+# Libraries
+
+First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
+
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(ggpubr)
+library(lubridate)
+library(stringr)
+library(circular)
+library(broom)
+library(purrr)
+library(stlplus)
+source("functions/wind.rose.R")
+```
+
+
+## Wind and wave data obtained from SAWS
+
+Creating a function which allows me to load the wind data:
+
+```{r define_fun8, include=TRUE}
+load_wave <- function(wave_files) {
+  site_name <- sapply(strsplit(as.character(wave_files), "/"), "[[", 3)
+  site_info <- sapply(strsplit(as.character(wave_files), "/"), "[[", 4)
+  site_info <- sapply(strsplit(site_info, ".txt"), "[[", 1)
+  site_info <- strsplit(site_info, "_")
+  site_depth <- sapply(site_info, "[[", 1)
+  site_num <- sapply(site_info, "[[", 2)
+  
+  wave <- read_table(wave_files, col_types = c("dddddd"),
+                     col_names = c("date", "hs", "tp", "dir", "dirw", "spw")) %>%
+    filter(tp != -999) %>%
+    mutate(date = as.POSIXct(as.character(date), "%Y%m%d%H%M", tz = "Africa/Johannesburg")) %>%
+    mutate(site = site_name,
+           num = site_num,
+           depth = site_depth) %>%
+    select(site, num, depth, everything()) %>% 
+    na.omit()
+  return(wave)
+}
+```
+
+Loadng the wind data for some of the sites along the wc of South Africa
+
+```{r}
+sea_point <- map_dfr(dir("Data/wave_data/Sea Point", 
+                            full.names = TRUE, pattern = "*.txt"), load_wave)
+lamberts_bay <- map_dfr(dir("Data/wave_data/Lamberts Bay", 
+                          full.names = TRUE, pattern = "*.txt"), load_wave)
+port_nolloth <- map_dfr(dir("Data/wave_data/Port Nolloth", 
+                            full.names = TRUE, pattern = "*.txt"), load_wave)
+saldanha_bay <- map_dfr(dir("Data/wave_data/Saldanha Bay",
+                        full.names = TRUE, pattern = "*.txt"), load_wave)
+
+wave_data <- rbind(sea_point,lamberts_bay,port_nolloth,saldanha_bay)
+rm(sea_point,lamberts_bay,port_nolloth,saldanha_bay)
+```
+
+Converting the 3-hour resolution wave data into daily data. https://cran.r-project.org/web/packages/circular/circular.pdf (Pg 130). The circular function creates circular objects around the wind and wave direction. The wave and wind direction was collected every three hours and by using the circular function we calcuated the daily mean wave and wind direction. There is a numerically large gap between 360 and 2 where as in degrees its not as large. The circular mean function returns the mean direction of a vector of circular data. Here I also split the daily wave data into depths of 7m and 15m respectivley. For this analyses I will only be working with 7m analyses. 
+
+```{r}
+wave_daily_dir <- wave_data %>%
+  mutate(date = as.Date(date)) %>%
+  group_by(site, num, depth, date) %>%
+  summarise(dir_circ = mean.circular(circular(dir, units = "degrees")),
+            dirw_circ = mean.circular(circular(dirw, units = "degrees"))) 
+wave_daily <- wave_data %>%
+  mutate(date = as.Date(date)) %>%
+  group_by(site, num, depth, date) %>%
+  summarise_all(funs(mean = mean, sd = sd), na.rm = T) %>%
+  ungroup() %>% 
+  left_join(wave_daily_dir)
+# save(wave_daily, file = "Data/wave_daily.RData")
+
+load("~/Documents/Masters_2019/MastersProject/Data/wave_daily.RData")
+wave_data_7 <- wave_daily %>%
+  filter(depth == "7m")
+# wave_date_15 <- wave_data %>%
+#   filter(depth == "15m")
+```
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/G1SST_fyears.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/OISST_fyears.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/MUR_fyears.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/SACTN_fyears.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/K10_fyears.RData")
+```
+
+Here i match the wave data with the datasets
+
+```{r}
+match_wave_7 <- function(df) {
+  func1 <- df %>% 
+    left_join(wave_data_7, by = c("site", "date")) %>% 
+    na.trim() %>% 
+    group_by(site)
+    return(func1)
+}
+
+MUR_wind <- match_wave_7(df = MUR_fyears)
+SACTN_wind <-  match_wave_7(df = SACTN_fyears)
+OISST_wind <-  match_wave_7(df = OISST_fyears)
+G1SST_wind <-  match_wave_7(df = G1SST_fyears)
+# K10_wind <-  match_wave_7(df = overlap_ts)
+```
+
+# Wind rose diagrams plotting the wind action 
+
+```{r}
+source("functions/wind.rose.R")
+
+wave_daily_renamed <- MUR_wind %>% 
+  dplyr::rename(spd = spw_mean) %>%
+  dplyr::rename(dir = dirw_mean)
+
+p.wr2 <- plot.windrose(data = wave_daily_renamed,
+              spd = "spd",
+              dir = "dir")
+
+p.wr3 <- p.wr2 + facet_wrap(~ site) +
+  theme(strip.text.x = element_text(size = 20))
+p.wr3
+
+```
+
+## Wavelet analyses on the wind data corresponding to the wavelet data showing temperature
+
+```{r}
+
+# When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
+# SACTN_fyears <- SACTN_fyears %>% 
+#   dplyr::rename(temp = insitu_temp)
+
+temp.d <- function(df){
+temp.d <- df %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(dirw_circ = mean(dirw_circ, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, dirw_circ, date)
+}
+
+
+temp.d <- temp.d(df = MUR_wind)
+# temp.d <- temp.d(df = OISST_fyears)
+# temp.d <- temp.d(df = G1SST_fyears) 
+# temp.d <- temp.d(df = K10_fyears) 
+
+temp.d <- temp.d %>% 
+  select(site, no, dirw_circ, date)
+
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+
+ggplot(PN_prewhite, aes(x = no, y = dirw)) +
+  geom_hline(aes(yintercept = mean(dirw)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures",plot_name,"_wind.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(PN_wave, plot_fun)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

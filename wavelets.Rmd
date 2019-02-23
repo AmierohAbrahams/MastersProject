@@ -68,6 +68,12 @@ MUR_fyears <- filtered_years(df = insitu_MUR)
 OISST_fyears <- filtered_years(df = insitu_OISST) 
 G1SST_fyears <- filtered_years(df = insitu_G1SST) 
 K10_fyears <- filtered_years(df = insitu_K10) 
+
+save(SACTN_fyears, file = "Data/temp_2014_2015/SACTN_fyears.RData")
+save(MUR_fyears, file = "Data/temp_2014_2015/MUR_fyears.RData")
+save(OISST_fyears, file = "Data/temp_2014_2015/OISST_fyears.RData")
+save(G1SST_fyears, file = "Data/temp_2014_2015/G1SST_fyears.RData")
+save(K10_fyears, file = "Data/temp_2014_2015/K10_fyears.RData")
 ```
 
 # Wavelet analyses
@@ -87,6 +93,7 @@ temp.d <- df %>%
   dplyr::select(site, no, temp, date)
 }
 
+# temp.d <- temp.d(df = SACTN_fyears) 
 # temp.d <- temp.d(df = MUR_fyears) 
 # temp.d <- temp.d(df = OISST_fyears)
 # temp.d <- temp.d(df = G1SST_fyears) 
