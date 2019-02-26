@@ -1,0 +1,162 @@
+---
+title: "Chlorophylla"
+author: "Amieroh Abrahams"
+date: "18 February 2019"
+output: html_document
+---
+
+The aim of this script is to extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data was obtained from MODIS Aqua. The aim of working with this chlorophyll a data is to analyse how it changes/varies with upwelling.
+
+```{r}
+library(ncdf4)
+library(data.table)
+library(tidyverse)
+library(reshape2)
+library(plyr)
+library(lubridate)
+library(stringr)
+library(doMC); doMC::registerDoMC(cores = 4)
+library(ggpubr)
+library(fasttime)
+library(FNN)
+
+MODIS_chlor.dir <- "/home/amieroh/Documents/Data/Datasets/Chlorophyll_a"
+MODIS_chlor.csv.dir <- "/home/amieroh/Documents/Data/Datasets"
+
+region <- "BC" # Benguela Current
+coords <- bbox[, region]
+coords <- c(-35, -20, 10, 20) # this is the BC
+
+ncList <- list.files(path = MODIS_chlor.dir, pattern = "*.nc", full.names = TRUE, include.dirs = TRUE)
+strt.date <- str_sub(basename(ncList[1]), start = 2, end = 8)
+end.date <- str_sub(basename(ncList[length(ncList)]), start = 2, end = 8)
+nc.init <- nc_open(ncList[1])
+LatIdx <- which(nc.init$dim$lat$vals > coords[1] & nc.init$dim$lat$vals < coords[2])
+LonIdx <- which(nc.init$dim$lon$vals > coords[3] & nc.init$dim$lon$vals < coords[4])
+nc_close(nc.init)
+
+
+ncFun <- function(nc.file = nc.files, csv.dir = csv.dir) {
+nc <- nc_open(nc.file)
+  instrument <- ncatt_get(nc, 0, "instrument")$value
+  platform <- ncatt_get(nc, 0, "platform")$value
+  product_name <- ncatt_get(nc, 0, "product_name")$value
+  fNameStem <- substr(product_name, 17, 38)
+  timeStamp <- substr(product_name, 2, 8)
+  origin <- paste0(substr(timeStamp, 1, 4), "-01-01")
+  date <- as.Date(as.numeric(substr(timeStamp, 5, 7)), origin)
+  chl <- round(ncvar_get(nc,
+                   varid = "chlor_a",
+                   start = c(LonIdx[1], LatIdx[1]),
+                   count = c(length(LonIdx), length(LatIdx))),
+               3)
+  dimnames(chl) <- list(lon = nc$dim$lon$vals[LonIdx],
+                        lat =  nc$dim$lat$vals[LatIdx])
+  nc_close(nc)
+  chl <-
+    as.data.table(melt(chl, value.name = "chl"), row.names = NULL) %>%
+    mutate(t = date) %>%
+    na.omit()
+  fwrite(chl,
+         file = paste(csv.dir, "/", region, "-", instrument, ".",platform, ".",
+                      fNameStem, "-", strt.date, "-", end.date, ".csv", sep = ""),
+         append = TRUE, col.names = FALSE)
+  rm(chl)
+}
+
+llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
+```
+
+## Setting up the chlorophylla dataset
+
+```{r}
+MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
+MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
+            col.names = c("lon", "lat", "chloro", "date"))
+
+# save(MODIS_Chloro, file = "Data/MODIS_Chloro.RData")
+load("Data/MODIS_Chloro.RData")
+load("Data/combined_US.RData")
+
+daily_chloro_data <- MODIS_Chloro %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  dplyr::group_by(lon, lat, date) %>% 
+  mutate(month = month(date),
+         day = day(date),
+         year = year(date)) %>% 
+  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) 
+
+# fastDate <- function(x, tz = NULL) {
+#   as.Date(fastPOSIXct(x, tz = tz))
+# }
+# 
+# daily2monthly <- function(dailyData) {
+#   monthlyData <- dailyData %>%
+#     dplyr::mutate(time = fastDate(time)) %>%
+#     dplyr::mutate(month = floor_date(time, unit = "month")) %>%
+#     dplyr::group_by(lon, lat, month) %>%
+#     dplyr::summarise(chlor_a = mean(chlor_a, na.rm = TRUE)) %>%
+#     dplyr::mutate(year = year(month)) %>%
+#     dplyr::group_by(lon, lat) %>%
+#     dplyr::mutate(num = seq(1:length(chlor_a))) %>%
+#     dplyr::ungroup()
+#   return(monthlyData)
+# }
+#  daily2monthly(MODIS_Chloro)
+
+# Pixels and matching
+# match_index <- knnx.index(data = as.matrix(daily_chloro[,4:5]),
+#                           query = as.matrix(combined_US[,5:6]), k = 1)
+# 
+# # # Select SST pixels nearest to insitu sites
+# pixel_match <- daily_chloro[match_index,] %>%
+#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+#   unite(col = day, year, month, sep = "-", remove = F) %>% 
+#   mutate(site = combined_US$site)
+# 
+# daily_chloro_match <- daily_chloro %>%
+#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+#   unite(col = day, year, month, sep = "-", remove = F) %>% 
+#   filter(combi %in% pixel_match$combi)
+# 
+# daily_chloro_match_sites <- daily_chloro_match %>%
+#   left_join(pixel_match, by = c("combi", "lon", "lat")) %>%
+#   group_by(day, site) %>% 
+#   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
