@@ -5,20 +5,21 @@ date: "18 February 2019"
 output: html_document
 ---
 
-The aim of this script is to extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data was obtained from MODIS Aqua. The aim of working with this chlorophyll a data is to examine how the chlorophyll a  concentration varies with upwelling.
+The aim of this script is to extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data were obtained from MODIS Aqua. The aim of working with these chlorophyll a data is to examine how the chlorophyll a concentration varies with upwelling.
 
 ```{r}
 library(ncdf4)
 library(data.table)
 library(tidyverse)
 library(reshape2)
-library(plyr)
+library(plyr) # Never load plyr when also loading the tidyverse. It causes a lot of conflicts.
 library(lubridate)
 library(stringr)
 library(doMC); doMC::registerDoMC(cores = 4)
 library(ggpubr)
 library(fasttime)
 library(FNN)
+library(heatwaveR)
 
 MODIS_chlor.dir <- "/home/amieroh/Documents/Data/Datasets/Chlorophyll_a"
 MODIS_chlor.csv.dir <- "/home/amieroh/Documents/Data/Datasets"
@@ -69,7 +70,7 @@ llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
 
 ## Setting up the chlorophylla dataset
 
-Chlorophyll-a data are 8day composites. In order to compare the chlorophyll concentration with upwelling events, take 8days, take the average. This is one value. Repeat this so what i have a time series with chlorophyll-a data every 8days. 
+Chlorophyll-a data are 8 day composites. In order to compare the chlorophyll concentration with upwelling events, take 8 days, take the average. This is one value. Repeat this so what I have a time series with chlorophyll-a data every 8 days. 
 
 Plot this using a line graph?... Upwelling evetns were plot using wavelet analyses
 
@@ -83,14 +84,6 @@ Plot this using a line graph?... Upwelling evetns were plot using wavelet analys
 load("Data/MODIS_Chloro.RData")
 load("Data/combined_US.RData")
 
-daily_chloro_data <- MODIS_Chloro %>%
-  dplyr::mutate(date = as.Date(date)) %>% 
-  mutate(month = month(date),
-         day = day(date),
-         year = year(date)) %>% 
-  dplyr::group_by(lon, lat, day, month, year) %>% 
-  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) 
-
 # Pixels and matching
 match_index <- knnx.index(data = as.matrix(daily_chloro_data[,1:2]),
                           query = as.matrix(combined_US[,5:6]), k = 1)
@@ -100,12 +93,31 @@ pixel_match <- daily_chloro_data[match_index,] %>%
   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
   mutate(site = combined_US$site)
 
-daily_chloro_match <- daily_chloro_data %>%
+daily_chloro_match <- MODIS_Chloro %>%
   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
   filter(combi %in% pixel_match$combi)
 
-daily_chloro_match_sites <- daily_chloro_match %>%
-  left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
+# With the chloro pixels filter, it is now faster to create the daily data
+daily_chloro_data <- daily_chloro_match %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  dplyr::group_by(combi, lon, lat, date) %>% 
+  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>% 
+  dplyr::group_by(combi, lon, lat) %>% 
+  tidyr::nest() %>% 
+  dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
+                       climatologyPeriod = c("2002-07-13", "2018-12-04"), # This doesn't mean anything, but the function needs it to work
+                       maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
+  dplyr::select(-data) %>% 
+  tidyr::unnest() %>% 
+  select(-doy, -seas, -thresh)
+
+ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
+  geom_line() +
+  facet_wrap(~combi, ncol = 1)
+
+
+# daily_chloro_match_sites <- daily_chloro_data %>%
+#   left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
 ```
 
 
