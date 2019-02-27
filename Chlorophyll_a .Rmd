@@ -5,7 +5,7 @@ date: "18 February 2019"
 output: html_document
 ---
 
-The aim of this script is to extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data was obtained from MODIS Aqua. The aim of working with this chlorophyll a data is to analyse how it changes/varies with upwelling.
+The aim of this script is to extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data was obtained from MODIS Aqua. The aim of working with this chlorophyll a data is to examine how the chlorophyll a  concentration varies with upwelling.
 
 ```{r}
 library(ncdf4)
@@ -69,10 +69,15 @@ llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
 
 ## Setting up the chlorophylla dataset
 
+Chlorophyll-a data are 8day composites. In order to compare the chlorophyll concentration with upwelling events, take 8days, take the average. This is one value. Repeat this so what i have a time series with chlorophyll-a data every 8days. 
+
+Plot this using a line graph?... Upwelling evetns were plot using wavelet analyses
+
+
 ```{r}
-MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
-MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
-            col.names = c("lon", "lat", "chloro", "date"))
+# MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
+# MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
+#             col.names = c("lon", "lat", "chloro", "date"))
 
 # save(MODIS_Chloro, file = "Data/MODIS_Chloro.RData")
 load("Data/MODIS_Chloro.RData")
@@ -80,49 +85,27 @@ load("Data/combined_US.RData")
 
 daily_chloro_data <- MODIS_Chloro %>%
   dplyr::mutate(date = as.Date(date)) %>% 
-  dplyr::group_by(lon, lat, date) %>% 
   mutate(month = month(date),
          day = day(date),
          year = year(date)) %>% 
+  dplyr::group_by(lon, lat, day, month, year) %>% 
   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) 
 
-# fastDate <- function(x, tz = NULL) {
-#   as.Date(fastPOSIXct(x, tz = tz))
-# }
-# 
-# daily2monthly <- function(dailyData) {
-#   monthlyData <- dailyData %>%
-#     dplyr::mutate(time = fastDate(time)) %>%
-#     dplyr::mutate(month = floor_date(time, unit = "month")) %>%
-#     dplyr::group_by(lon, lat, month) %>%
-#     dplyr::summarise(chlor_a = mean(chlor_a, na.rm = TRUE)) %>%
-#     dplyr::mutate(year = year(month)) %>%
-#     dplyr::group_by(lon, lat) %>%
-#     dplyr::mutate(num = seq(1:length(chlor_a))) %>%
-#     dplyr::ungroup()
-#   return(monthlyData)
-# }
-#  daily2monthly(MODIS_Chloro)
-
 # Pixels and matching
-# match_index <- knnx.index(data = as.matrix(daily_chloro[,4:5]),
-#                           query = as.matrix(combined_US[,5:6]), k = 1)
-# 
+match_index <- knnx.index(data = as.matrix(daily_chloro_data[,1:2]),
+                          query = as.matrix(combined_US[,5:6]), k = 1)
+
 # # # Select SST pixels nearest to insitu sites
-# pixel_match <- daily_chloro[match_index,] %>%
-#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-#   unite(col = day, year, month, sep = "-", remove = F) %>% 
-#   mutate(site = combined_US$site)
-# 
-# daily_chloro_match <- daily_chloro %>%
-#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-#   unite(col = day, year, month, sep = "-", remove = F) %>% 
-#   filter(combi %in% pixel_match$combi)
-# 
-# daily_chloro_match_sites <- daily_chloro_match %>%
-#   left_join(pixel_match, by = c("combi", "lon", "lat")) %>%
-#   group_by(day, site) %>% 
-#   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE))
+pixel_match <- daily_chloro_data[match_index,] %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  mutate(site = combined_US$site)
+
+daily_chloro_match <- daily_chloro_data %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  filter(combi %in% pixel_match$combi)
+
+daily_chloro_match_sites <- daily_chloro_match %>%
+  left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
 ```
 
 
