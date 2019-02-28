@@ -110,7 +110,16 @@ daily_chloro_data <- daily_chloro_match %>%
   tidyr::unnest() %>% 
   select(-doy, -seas, -thresh)
 
+#Plotting daily data
 ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
+  geom_line() +
+  facet_wrap(~combi, ncol = 1)
+
+# Plotting only years 2014-2015
+daily_chloro_data_tester <- daily_chloro_data %>% 
+  filter(year(date) %in% seq(2014, 2015))
+
+ggplot(daily_chloro_data_tester, aes(x = date, y = chloro)) +
   geom_line() +
   facet_wrap(~combi, ncol = 1)
 
