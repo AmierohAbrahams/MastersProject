@@ -85,54 +85,6 @@ load("Data/MODIS_Chloro.RData")
 load("Data/combined_US.RData")
 
 
-unique_pixel <- MODIS_Chloro %>%
-  select(lon, lat) %>%
-  unique()
-
-daily_chloro_data <- MODIS_Chloro %>%
-  dplyr::mutate(date = as.Date(date)) %>% 
-  mutate(month = month(date),
-         day = day(date),
-         year = year(date)) %>% 
-  dplyr::group_by(lon, lat, day, month, year) %>% 
-  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE))
-
-match_index <- knnx.index(data = as.matrix(daily_chloro_data[,1:2]),
-                          query = as.matrix(combined_US[,5:6]), k = 1)
-
-pixel_match <- daily_chloro_data[match_index,] %>%
-  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-  mutate(site = combined_US$site)
-
-daily_chloro_match <- MODIS_Chloro %>%
-  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-  filter(combi %in% pixel_match$combi)
-
-# With the chloro pixels filter, it is now faster to create the daily data
-daily_chloro_data <- daily_chloro_match %>%
-  dplyr::mutate(date = as.Date(date)) %>% 
-  dplyr::group_by(combi, lon, lat, date) %>% 
-  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>% 
-  dplyr::group_by(combi, lon, lat) %>% 
-  tidyr::nest() %>% 
-  dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
-                       climatologyPeriod = c("2002-07-13", "2018-12-04"), # This doesn't mean anything, but the function needs it to work
-                       maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
-  dplyr::select(-data) %>% 
-  tidyr::unnest() %>% 
-  select(-doy, -seas, -thresh)
-
-ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
-  geom_line() +
-  facet_wrap(~combi, ncol = 1)
-
-
-# daily_chloro_match_sites <- daily_chloro_data %>%
-#   left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
-```
-
-
-```{r}
 match_index <- knnx.index(data = as.matrix(MODIS_Chloro[,1:2]),
                           query = as.matrix(combined_US[,5:6]), k = 1)
 
@@ -165,6 +117,7 @@ ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
 # daily_chloro_match_sites <- daily_chloro_data %>%
 #   left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
 ```
+
 
 
 
