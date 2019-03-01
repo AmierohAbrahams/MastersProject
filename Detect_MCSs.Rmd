@@ -217,13 +217,13 @@ MUR_plot <- temp_plot(df = insitu_MUR)
 
 ## OISST dataset
 ```{r}
-# # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
-# 
+# AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
+
 # OISSTDir <- "~/Documents/Masters_2019/Data_SST"
 # OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
 #             col.names = c("lon", "lat", "temp", "date"))
-# 
-# #OISST <- as.tibble(fread("~/Documents/Masters_2019/MastersProject/Data/csvavhrr-only-v2-19810901-20180630.csv"))
+
+OISST <- as.tibble(fread("Data/csvavhrr-only-v2-19810901-20180630.csv"))
 # # Quick visualisation of the data
 # # To explore the data I visualise the min temperatures along the South african coastline.
 # 

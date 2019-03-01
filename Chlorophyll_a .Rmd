@@ -127,7 +127,11 @@ ggplot(daily_chloro_data_tester, aes(x = date, y = chloro)) +
 #   left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
 ```
 
+# Compare per season
 
+```{r}
+
+```
 
 
 
