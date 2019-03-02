@@ -101,38 +101,31 @@ daily_chloro_data <- daily_chloro_match %>%
   dplyr::mutate(date = as.Date(date)) %>% 
   dplyr::group_by(combi, lon, lat, date) %>% 
   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>% 
-  dplyr::group_by(combi, lon, lat) %>% 
-  tidyr::nest() %>% 
-  dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
-                       climatologyPeriod = c("2002-07-13", "2018-12-04"), # This doesn't mean anything, but the function needs it to work
-                       maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
-  dplyr::select(-data) %>% 
-  tidyr::unnest() %>% 
-  select(-doy, -seas, -thresh)
-
+  dplyr::group_by(combi, lon, lat) #%>% 
+  # tidyr::nest() %>% 
+  # dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
+  #                      climatologyPeriod = c("2002-07-13", "2018-12-04"), # This doesn't mean anything, but the function needs it to work
+  #                      maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
+  # dplyr::select(-data) %>% 
+  # tidyr::unnest() %>% 
+  # select(-doy, -seas, -thresh)
+s
 #Plotting daily data
-ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
-  geom_line() +
-  facet_wrap(~combi, ncol = 1)
+# ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
+#   geom_line() +
+#   facet_wrap(~combi, ncol = 1)
 
 # Plotting only years 2014-2015
 daily_chloro_data_tester <- daily_chloro_data %>% 
   filter(year(date) %in% seq(2014, 2015))
 
-ggplot(daily_chloro_data_tester, aes(x = date, y = chloro)) +
+rough_plot <- ggplot(daily_chloro_data_tester, aes(x = date, y = chloro)) +
   geom_line() +
   facet_wrap(~combi, ncol = 1)
 
 # daily_chloro_match_sites <- daily_chloro_data %>%
 #   left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
 ```
-
-# Compare per season
-
-```{r}
-
-```
-
 
 
 
