@@ -5,6 +5,7 @@ date: "18 February 2019"
 output: html_document
 ---
 
+## Script info
 The aim of this script is to extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data were obtained from MODIS Aqua. The aim of working with these chlorophyll a data is to examine how the chlorophyll a concentration varies with upwelling.
 
 ```{r}
@@ -20,7 +21,11 @@ library(ggpubr)
 library(fasttime)
 library(FNN)
 library(heatwaveR)
+```
 
+This function convert chlorophyll netCDF datasets to a single CSV datset
+
+```{r}
 MODIS_chlor.dir <- "/home/amieroh/Documents/Data/Datasets/Chlorophyll_a"
 MODIS_chlor.csv.dir <- "/home/amieroh/Documents/Data/Datasets"
 
@@ -66,69 +71,146 @@ nc <- nc_open(nc.file)
 }
 
 llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
-```
 
-## Setting up the chlorophylla dataset
-
-Chlorophyll-a data are 8 day composites. In order to compare the chlorophyll concentration with upwelling events, take 8 days, take the average. This is one value. Repeat this so what I have a time series with chlorophyll-a data every 8 days. 
-
-Plot this using a line graph?... Upwelling evetns were plot using wavelet analyses
-
-
-```{r}
 # MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
 # MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
 #             col.names = c("lon", "lat", "chloro", "date"))
 
 # save(MODIS_Chloro, file = "Data/MODIS_Chloro.RData")
-load("Data/MODIS_Chloro.RData")
-load("Data/combined_US.RData")
+```
 
 
-match_index <- knnx.index(data = as.matrix(MODIS_Chloro[,1:2]),
+## Setting up the chlorophylla dataset
+
+```{r}
+
+# Loading the data
+load("Data/MODIS_Chloro.RData") # Extracted chlorophyll data
+load("Data/combined_US.RData") # Site list of all the sites along the west coast
+
+chloro_plot <- MODIS_Chloro %>%
+  filter(date == min(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = chloro))
+
+unique_pixel <- MODIS_Chloro %>% 
+  select(lon, lat) %>% 
+  unique()
+
+match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
                           query = as.matrix(combined_US[,5:6]), k = 1)
 
-pixel_match <- MODIS_Chloro[match_index,] %>%
+# Matching the sites within the chlorophyll data to the sites along the west coast
+pixel_match <- unique_pixel[match_index,] %>%
   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
   mutate(site = combined_US$site)
 
-daily_chloro_match <- MODIS_Chloro %>%
+chloro_match <- MODIS_Chloro %>%
   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
   filter(combi %in% pixel_match$combi)
 
-# With the chloro pixels filter, it is now faster to create the daily data
-daily_chloro_data <- daily_chloro_match %>%
-  dplyr::mutate(date = as.Date(date)) %>% 
-  dplyr::group_by(combi, lon, lat, date) %>% 
-  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>% 
-  dplyr::group_by(combi, lon, lat) #%>% 
-  # tidyr::nest() %>% 
-  # dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
-  #                      climatologyPeriod = c("2002-07-13", "2018-12-04"), # This doesn't mean anything, but the function needs it to work
-  #                      maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
-  # dplyr::select(-data) %>% 
-  # tidyr::unnest() %>% 
-  # select(-doy, -seas, -thresh)
-s
-#Plotting daily data
+chloro_match %>%
+  filter(date == max(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = chloro))
+
+combined_chloro_sites <- chloro_match %>%
+  left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
+  dplyr::mutate(date = as.Date(date))
+
+# Save the complete dataset
+# save(combined_chloro_sites, file = "Data/combined_chloro_sites.RData")
+
+Chloro_plot_complete <- ggplot(combined_chloro_sites, aes(x = date, y = chloro)) +
+  geom_line() +
+  facet_wrap(~site, ncol = 1)
+Chloro_plot_complete
+
+# Plotting only years 2014-2015
+daily_chloro_data_tester <- combined_chloro_sites %>% 
+  filter(year(date) %in% seq(2014, 2015))
+
+Chloro_ggplot(daily_chloro_data_tester, aes(x = date, y = chloro)) +
+  geom_line() +
+  facet_wrap(~site, ncol = 1)
+Chloro_plot_filtered
+
+# # With the chloro pixels filter, it is now faster to create the daily data
+# daily_chloro_data <- daily_chloro_match %>%
+#   dplyr::mutate(date = as.Date(date)) %>%
+#   dplyr::group_by(combi, lon, lat, date) %>%
+#   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>%
+#   dplyr::group_by(combi, lon, lat) %>%
+#   tidyr::nest() %>%
+#   dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
+#                      climatologyPeriod = c("2002-07-13", "2018-12-04"), # This doesn't mean anything, but the function needs it to work
+#                      maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
+#   dplyr::select(-data) %>%
+#   tidyr::unnest() %>%
+#   select(-doy, -seas, -thresh)
+
+
+## Plotting daily data
 # ggplot(daily_chloro_data, aes(x = date, y = chloro)) +
 #   geom_line() +
 #   facet_wrap(~combi, ncol = 1)
 
-# Plotting only years 2014-2015
-daily_chloro_data_tester <- daily_chloro_data %>% 
-  filter(year(date) %in% seq(2014, 2015))
-
-rough_plot <- ggplot(daily_chloro_data_tester, aes(x = date, y = chloro)) +
-  geom_line() +
-  facet_wrap(~combi, ncol = 1)
-
 # daily_chloro_match_sites <- daily_chloro_data %>%
-#   left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year")) 
+# left_join(pixel_match, by = c("combi", "lon", "lat", "month", "day", "year"))
 ```
 
+Here I match the chlorophyll a data with the temperature data. This is done to explore how chlorophyll a concentration varies with temperature.
+
+```{r}
+load("Data/combined_chloro_sites.RData")
+
+## Load in the rest of the datasets
+## See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) 
+
+load("Data/overlap_ts.RData")
+load("Data/insitu_MUR.RData")
+load("Data/insitu_OISST.RData")
+load("Data/insitu_G1SST.RData")
+load("Data/insitu_K10.RData")
 
 
+filtered_years <- function(df){
+  upwelling<- df %>% 
+  filter(year(date) %in% seq(2014, 2015)) %>% 
+  drop_na()
+}
+
+SACTN_fyears <- filtered_years(df = overlap_ts) 
+MUR_fyears <- filtered_years(df = insitu_MUR) 
+OISST_fyears <- filtered_years(df = insitu_OISST) 
+G1SST_fyears <- filtered_years(df = insitu_G1SST) 
+K10_fyears <- filtered_years(df = insitu_K10) 
+
+# save(SACTN_fyears, file = "Data/temp_2014_2015/SACTN_fyears.RData")
+# save(MUR_fyears, file = "Data/temp_2014_2015/MUR_fyears.RData")
+# save(OISST_fyears, file = "Data/temp_2014_2015/OISST_fyears.RData")
+# save(G1SST_fyears, file = "Data/temp_2014_2015/G1SST_fyears.RData")
+# save(K10_fyears, file = "Data/temp_2014_2015/K10_fyears.RData")
+```
+
+The next step is to now match the insitu temperature data with the SST data
+
+```{r}
+temp_chloro <- function(df){
+  combined <- df %>% 
+  left_join(combined_chloro_sites, by = c("site", "date")) %>% 
+  select(-combi, -lat, -lon) %>% # Temp.x is the insitu collected data
+  #dplyr::rename(temp = temp.y) %>%
+  na.trim()
+  return(combined)
+}
+
+temp_chloro_SACTN <- temp_chloro(df = SACTN_fyears)
+temp_chloro_MUR <- temp_chloro(df = MUR_fyears)
+temp_chloro_OISST <- temp_chloro(df = OISST_fyears)
+temp_chloro_G1SST <- temp_chloro(df = G1SST_fyears)
+temp_chloro_G1SST <- temp_chloro(df = K10_fyears)
+```
 
 
 

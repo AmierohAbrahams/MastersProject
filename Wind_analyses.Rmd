@@ -6,9 +6,9 @@ output: html_document
 ---
 
 # Script Info
-The aim of this script is to plot wind rose diagrams representing the wind directions for the sites along the west coast of South Africa. The data used to plot the wind rose diagrams will correspond with the data used to plot the wavelet analyses. Using this we will be able to make deductions as to weather or not the intensity and duration of upwelling varied as a result of wind direction.
+The aim of this script is to plot wind rose diagrams and wavelets representing the wind for the sites which correspond with the upwelling sites along the west coast of South Africa. Using this we will be able to make deductions as to whether or not the intensity and duration of upwelling varied as a result of wind patterns. *Latest wind data on line 149*
 
-The wind data used in this analyses were obtained from the SAWS as well as the NCEP wind data. *Other wind datasets still to be used*
+The wind data used in this analyses were obtained from the SAWS  *Other wind datasets still to be used*
 
 # Libraries
 
@@ -29,15 +29,19 @@ library(circular)
 library(broom)
 library(purrr)
 library(stlplus)
+library(zoo)
 source("functions/wind.rose.R")
 ```
 
 
 ## Wind and wave data obtained from SAWS
 
-Creating a function which allows me to load the wind data:
+Creating a function to load the wind and wave data:
 
 ```{r define_fun8, include=TRUE}
+# Building the  function (file path): data/wave_data/Sea Point/15m_359.txt
+#                          1/   2     /    3    /     4
+
 load_wave <- function(wave_files) {
   site_name <- sapply(strsplit(as.character(wave_files), "/"), "[[", 3)
   site_info <- sapply(strsplit(as.character(wave_files), "/"), "[[", 4)
@@ -53,15 +57,11 @@ load_wave <- function(wave_files) {
     mutate(site = site_name,
            num = site_num,
            depth = site_depth) %>%
-    select(site, num, depth, everything()) %>% 
+    select(site, num, depth, everything()) %>%
     na.omit()
   return(wave)
 }
-```
 
-Loadng the wind data for some of the sites along the wc of South Africa
-
-```{r}
 sea_point <- map_dfr(dir("Data/wave_data/Sea Point", 
                             full.names = TRUE, pattern = "*.txt"), load_wave)
 lamberts_bay <- map_dfr(dir("Data/wave_data/Lamberts Bay", 
@@ -99,14 +99,18 @@ wave_data_7 <- wave_daily %>%
 ```
 
 ```{r}
-load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/G1SST_fyears.RData")
-load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/OISST_fyears.RData")
-load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/MUR_fyears.RData")
-load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/SACTN_fyears.RData")
-load("~/Documents/Masters_2019/MastersProject/Data/temp_2014_2015/K10_fyears.RData")
+load("Data/temp_2014_2015/G1SST_fyears.RData")
+load("Data/temp_2014_2015/OISST_fyears.RData")
+load("Data/temp_2014_2015/MUR_fyears.RData")
+load("Data/temp_2014_2015/SACTN_fyears.RData")
+load("Data/temp_2014_2015/K10_fyears.RData")
 ```
 
-Here i match the wave data with the datasets
+#############################################################
+#############################################################
+This following code is unable to plot the wind patterns (wind roses) as temperature collection occured between 2014-2015 and we do not have wind data that corresponds with these years 
+
+Here I match the wind data with the SST datasets
 
 ```{r}
 match_wave_7 <- function(df) {
@@ -142,78 +146,27 @@ p.wr3 <- p.wr2 + facet_wrap(~ site) +
 p.wr3
 
 ```
+#############################################################
+#############################################################
 
-## Wavelet analyses on the wind data corresponding to the wavelet data showing temperature
+## Writing a funciton to load the new wind data
 
-```{r}
+Data/wind_data.txt(SAWS)/wind1/wind1.txt
 
-# When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
-# SACTN_fyears <- SACTN_fyears %>% 
-#   dplyr::rename(temp = insitu_temp)
-
-temp.d <- function(df){
-temp.d <- df %>% 
-  dplyr::group_by(site, date) %>% 
-  dplyr::summarise(dirw_circ = mean(dirw_circ, na.rm = T)) %>%
-  dplyr::mutate(no = seq(1:n())) %>%
-  dplyr::ungroup() %>% 
-  dplyr::select(site, no, dirw_circ, date)
+```{r define_fun8, include=TRUE}
+load_wind <- function(wind_files) {
+ site_info <- sapply(strsplit(as.character(wind_files), "/"), "[[", 4)
+ site_info <- sapply(strsplit(site_info, ".txt"), "[[", 1)
+  
+  wave <- read_table(wind_files, col_types = c("dddddd"),
+                     col_names = c("station_number", "station_name", "date", "hour", "speed", "dir")) %>% 
+       na.omit()
+  return(wave)
 }
 
-
-temp.d <- temp.d(df = MUR_wind)
-# temp.d <- temp.d(df = OISST_fyears)
-# temp.d <- temp.d(df = G1SST_fyears) 
-# temp.d <- temp.d(df = K10_fyears) 
-
-temp.d <- temp.d %>% 
-  select(site, no, dirw_circ, date)
-
-prewhite_fun <- function(x) {
-  df <- x[, 2:3]
-  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
-             genplot = FALSE, verbose = FALSE)
-  colnames(out) <- c("no", "temp")
-  return(out)
-  }
-PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
-
-ggplot(PN_prewhite, aes(x = no, y = dirw)) +
-  geom_hline(aes(yintercept = mean(dirw)), colour = "salmon") +
-  geom_line() +
-  facet_wrap(~ site, nrow = 4) +
-  theme_bw()
-
-wl.fun <- function(x) {
-  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
-                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
-                   method = "white.noise", verbose = FALSE)
-}
-
-PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
-
-for (i in 1:length(PN_wave)) {
-  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
-}
-# x <- PN_wave[[3]]
-plot_fun <- function(x, plot_name = attributes(x)$ref) {
-  png(filename = paste0("Figures",plot_name,"_wind.png"),
-      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
-  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
-           timelab = "Days", verbose = FALSE, useRaster = TRUE,
-           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
-           main = plot_name)
-  dev.off()
-}
-ldply(PN_wave, plot_fun)
+tester <- map_dfr(dir("Data/wind_data.txt(SAWS)/wind1", 
+                            full.names = TRUE, pattern = "*.txt"), load_wind)
 ```
-
-
-
-
-
-
-
 
 
 

@@ -5,7 +5,9 @@ date: "09 February 2019"
 output: html_document
 ---
 
-Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events varies per sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. Here i was only required to plot a time series of 2 years.
+## Script info
+
+Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2014 and 2015. Thereafter, wavelet analyses ae created per season for each individual site along the west coast of South Africa. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
 
 # Libraries
 
@@ -19,16 +21,20 @@ knitr::opts_chunk$set(
 )
 
 library(tidyverse)
-library(plyr)
-library(lubridate)
 library(ggpubr)
 library(zoo)
 library(lubridate)
-library(FNN)
+library(stringr)
+library(circular)
+library(broom)
+library(ggrepel)
+library(purrr)
+library(stlplus)
 library(forecast)
 library(astrochron)
 library(WaveletComp)
 library(data.table)
+# library(plyr)
 ```
 
 ### Load site list SACTN data
@@ -41,7 +47,7 @@ load("Data/SACTN_daily_v4.2.RData")
 
 ## Load in the rest of the datasets
 
-* See the Dectect_MCS.Rmd script for more info. The datasets being loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) 
+* See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) 
 
 ```{r}
 load("Data/overlap_ts.RData")
@@ -54,7 +60,7 @@ load("Data/insitu_K10.RData")
 
 # Time series of one year
 
-Here I only look at upwelling duration over a period of 1 year. from 2014 - 2015
+Examining the intensity and duration of upwelling for the years 2014 - 2015
 
 ```{r}
 filtered_years <- function(df){
@@ -143,7 +149,7 @@ ldply(PN_wave, plot_fun)
 
 ## Examining seasonal upwelling
 
-Creating a seasonal column. Allowing me to compare the intensity/duration of upwelling on a seasonal basis. This should to be repeated for each of the sites within each of the datasets (SACTN, MUR, OISST, G1SST and K10). The code bellow needs to be edited. Here I only focused on Port Nolloth within the SACTN dataset.  
+Creating a seasonal column. Allowing me to compare the intensity/duration of upwelling on a seasonal basis. This should to be repeated for each of the sites within each of the datasets (SACTN, MUR, OISST, G1SST and K10).
 
 ```{r}
 load("Data/temp_2014_2015/G1SST_fyears.RData")
@@ -187,15 +193,23 @@ load("Data/temp_2014_2015/K10_seasonal.RData")
 A seasonal plotting representing the sea surface temperature for 2014 and 2015  
 
 ```{r}
-PN_14 <- SACTN_seasonal %>% 
-  filter(site == "Port Nolloth") %>% 
-  filter(year == 2014 )
+# PN_14 <- SACTN_seasonal %>% 
+#   filter(site == "Port Nolloth") %>% 
+#   filter(year == 2014 )
 
-PN_15 <- SACTN_seasonal %>% 
+# creating a function to only select the year 2015
+SST_season_func <- function(df){
+seasonal_15 <- df %>% 
   filter(year == 2015 )
-  # filter(site == "Port Nolloth") %>% 
-  # filter(year == 2015 )
+}
 
+seasonal_2015_SACTN <- SST_season_func(df = SACTN_seasonal)
+seasonal_2015_MUR <- SST_season_func(df = MUR_seasonal)
+seasonal_2015_OISST <- SST_season_func(df = OISST_seasonal)
+seasonal_2015_G1SST <- SST_season_func(df = G1SST_seasonal)
+seasonal_2015_K10 <- SST_season_func(df = K10_seasonal)
+
+## Plotting function
 combined_seasonal <- function(df){
   plot <- df %>% 
     ggplot(aes(x = date, y = insitu_temp)) +
@@ -204,18 +218,20 @@ combined_seasonal <- function(df){
     theme_bw()
 }
 
-combined_seasonal_2014 <- combined_seasonal(df = PN_14)
-combined_seasonal_2015 <- combined_seasonal(df = PN_15)
-combined_PortNolloth <- ggarrange(combined_seasonal_2014, combined_seasonal_2015)
-
-# ggsave(plot = combined_PortNolloth, filename = "Figures/combined_PortNolloth.png")
+combined_seasonal_2015_SACTN <- combined_seasonal(df = seasonal_2015_SACTN)
+combined_seasonal_2015_MUR <- combined_seasonal(df = seasonal_2015_MUR)
+combined_seasonal_2015_OISST <- combined_seasonal(df = seasonal_2015_OISST)
+combined_seasonal_2015_G1SST <- combined_seasonal(df = seasonal_2015_G1SST)
+combined_seasonal_2015K10 <- combined_seasonal(df = seasonal_2015_K10)
 ```
 
-Creating a wavelet analyses for the year 2015. This code creates a plot per season.
+Creating a wavelet analyses for the year 2015. This code creates a plot per season. The outcome and plots of this code may be found in the figures folder->seasonal_wavelets (Figures/seasonal_wavelets)
 
 ```{r}
-seasonal_PN_15 <- PN_15 %>% 
-  dplyr::rename(temp = insitu_temp)
+
+# Here I rename the column "insitu-temp" to "temp", this is done in order to have it run on the same code as each of the other SST datasets
+# seasonal_15 <- seasonal_2015_SACTN %>%
+#   dplyr::rename(temp = insitu_temp)
 
 temp.d <- function(df){
 temp.d <- df %>% 
@@ -226,10 +242,21 @@ temp.d <- df %>%
   dplyr::select(season, site, no, temp)
 }
 
-temp.d <- temp.d(df = seasonal_PN_15)
+###### Remove the hash's to run the same code on each of these datasets####
+# temp.d <- temp.d(df = seasonal_15)  for the SACTN  seawater temp dataset
+# temp.d <- temp.d(df = seasonal_2015_MUR) #for the MUR SST dataset
+# temp.d <- temp.d(df = seasonal_2015_OISST) #for the OISST SST dataset
+# temp.d <- temp.d(df = seasonal_2015_G1SST) #for the G1SST SST dataset
+# temp.d <- temp.d(df = seasonal_2015_K10) #for the K10 SST dataset
 
 temp.d <- temp.d %>% 
   select(season, site, no, temp)
+
+temp_seasonal <- ggplot(temp.d, aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ season, nrow = 4) +
+  theme_bw()
 
 prewhite_fun <- function(x) {
   df <- x[, 3:4]
@@ -240,26 +267,20 @@ prewhite_fun <- function(x) {
   }
 PN_prewhite <- as.tibble(ddply(temp.d, .(site, season), prewhite_fun))
 
-temp_seasonal <- ggplot(temp.d, aes(x = date, y = temp)) +
-  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
-  geom_line() +
-  facet_wrap(~ season, nrow = 4) +
-  theme_bw()
-
 wl.fun <- function(x) {
   analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
                    dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
                    method = "white.noise", verbose = FALSE)
 }
 
-PN_wave <- dlply(temp.d, .(site, season), wl.fun)
+sites_wave <- dlply(temp.d, .(site, season), wl.fun)
 
-for (i in 1:length(PN_wave)) {
-  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+for (i in 1:length(sites_wave)) {
+  attributes(sites_wave[[i]]) <- c(attributes(sites_wave[[i]]), ref = names(sites_wave)[i])
 }
-# x <- PN_wave[[3]]
+# x <- sites_wave[[3]]
 plot_fun <- function(x, plot_name = attributes(x)$ref) {
-  png(filename = paste0("Figures/new",plot_name,"_wavelets.png"),
+  png(filename = paste0("Figures/seasonal",plot_name,"_wavelets.png"),
       width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
   wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
            timelab = "Days", verbose = FALSE, useRaster = TRUE,
@@ -267,15 +288,19 @@ plot_fun <- function(x, plot_name = attributes(x)$ref) {
            main = plot_name)
   dev.off()
 }
-ldply(PN_wave, plot_fun)
+ldply(sites_wave, plot_fun)
 ```
 
 
+```{r}
+temp.d <- temp.d %>% 
+  select(season, site, no, temp)
 
+temp_seasonal <- ggplot(temp.d, aes(x = date, y = temp)) +
+  geom_line(aes(group = site)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  facet_wrap(~ season, nrow = 4) +
+  theme_bw()
 
-
-
-
-
-
+```
 
