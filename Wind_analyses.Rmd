@@ -151,23 +151,96 @@ p.wr3
 
 ## Writing a funciton to load the new wind data
 
-Data/wind_data.txt(SAWS)/wind1/wind1.txt
 
 ```{r define_fun8, include=TRUE}
-load_wind <- function(wind_files) {
- site_info <- sapply(strsplit(as.character(wind_files), "/"), "[[", 4)
- site_info <- sapply(strsplit(site_info, ".txt"), "[[", 1)
-  
-  wave <- read_table(wind_files, col_types = c("dddddd"),
-                     col_names = c("station_number", "station_name", "date", "hour", "speed", "dir")) %>% 
-       na.omit()
-  return(wave)
+# load_wind <- function(wind_files) {
+#  site_info <- sapply(strsplit(as.character(wind_files), "/"), "[[", 4)
+#  site_info <- sapply(strsplit(site_info, ".txt"), "[[", 1)
+#   
+#   wave <- read_table(wind_files, col_types = c("dddddd"),
+#                      col_names = c("station_number", "station_name", "date", "hour", "speed", "dir")) %>% 
+#        na.omit()
+#   return(wave)
+# }
+# 
+# tester <- map_dfr(dir("Data/wind_data.txt(SAWS)/wind1", 
+#                             full.names = TRUE, pattern = "*.txt"), load_wind)
+
+
+wind_1 <- read.delim("/home/amieroh/Documents/Masters_2019/MastersProject/Data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings="") 
+colnames(wind_1) <- c("station_number", "station_name", "date", "hour", "sub", "speed", "dir") 
+
+wind_2 <- read.delim("/home/amieroh/Documents/Masters_2019/MastersProject/Data/wind_data.txt(SAWS)/wind2/wind2.txt", na.strings="")
+colnames(wind_2) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
+
+wind_3 <- read.delim("/home/amieroh/Documents/Masters_2019/MastersProject/Data/wind_data.txt(SAWS)/wind3/wind3.txt", na.strings="")
+colnames(wind_3) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
+
+# Slecting the important columns for each of the datasets
+wind_fix <- function(df){
+wind <- df%>% 
+  select(station_name, date, hour, dir, speed)
 }
 
-tester <- map_dfr(dir("Data/wind_data.txt(SAWS)/wind1", 
-                            full.names = TRUE, pattern = "*.txt"), load_wind)
+wind_1 <- wind_fix(df = wind_1)
+wind_2 <- wind_fix(df = wind_2)
+wind_3 <- wind_fix(df = wind_3)
+
+## Renaming the sites within the wind datasets to match the name of the sites at which seawater temperature was collected
+## The wind data was obtained from the SAWS and the wind stations used were the closes stations to which temperature was collected
+
+renaming_sites_1 <- function(df) {
+  sites <- df %>%
+    mutate(temp_sites = ifelse(station_name %in% c("CAPE COLUMBINE"), "St Helena Bay",        
+                           ifelse(station_name %in% c("KOINGNAAS"), "Hondeklipbaai",
+                                ifelse(station_name %in% c("PORT NOLLOTH"), "Port Nolloth",
+                                       ifelse(station_name %in% c("LAMBERTSBAAI NORTIER"), "Lamberts Bay",
+                                              ifelse(station_name %in% c("LANGEBAANWEG AWS"), "Saldanha Bay
+","Error"))))))
+  return(sites)
+}
+
+wind_sitesmatched_1 <-  renaming_sites_1(df = wind_1)
+wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ] 
+
+renaming_sites_2 <- function(df) {
+  sites <- df %>%
+    mutate(temp_sites = ifelse(station_name %in% c("ROBBENEILAND"), "Koeberg Basin",        
+                           ifelse(station_name %in% c("GEELBEK"), "Yzerfontein",
+                                ifelse(station_name %in% c("DASSEN ISLAND"), "Dassen Island",
+                                       ifelse(station_name %in% c("ATLANTIS"), "Koeberg Basin","Error")))))
+  return(sites)
+}
+
+wind_sitesmatched_2 <-  renaming_sites_2(df = wind_2)
+wind_sitesmatched_2 <- wind_sitesmatched_2[-c(228372, 228373, 313441, 313442, 364881, 364882, 557392), ] 
+
+renaming_sites_3 <- function(df) {
+  sites <- df %>%
+    mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Kommetjie",  
+                           ifelse(station_name %in% c("CAPE TOWN - ROYAL YACHT CLUB"), "Sea Point",
+                           ifelse(station_name %in% c("CAPE TOWN TABLE BAY"), "Sea Point","Error"))))
+  return(sites)
+}
+
+wind_sitesmatched_3 <-  renaming_sites_3(df = wind_3)
+wind_sitesmatched_3 <- wind_sitesmatched_3[-c(119317, 119318, 196551, 196552, 346759), ] 
+
+## CAPE TOWN SLANGKOP may be used for Kommetjie and for Houtbay
+wind_3_HoutBay <- wind_3 %>% 
+  filter(station_name == "CAPE TOWN SLANGKOP") %>% 
+  mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Hout Bay","Error"))
+
+wind_data <- rbind(wind_3_HoutBay,wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
+wind_data <- wind_data %>% 
+  dplyr::rename(site = temp_sites) %>% 
+  select(site, date, hour, dir, speed)
 ```
 
+Things to do*******
+
+- Match temp and wind data
+- Create plots shwoing predominant wind direction during an upwelling evnt
 
 
 
