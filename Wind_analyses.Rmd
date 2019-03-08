@@ -234,13 +234,77 @@ wind_3_HoutBay <- wind_3 %>%
 wind_data <- rbind(wind_3_HoutBay,wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
 wind_data <- wind_data %>% 
   dplyr::rename(site = temp_sites) %>% 
+  mutate(date = as.Date(date)) %>% 
+  mutate(hour = as.numeric(hour),
+         dir = as.numeric(dir),
+         speed = as.numeric(speed)) %>% 
   select(site, date, hour, dir, speed)
+
+# save(wind_data, file = "Data/wind_data.RData")
+
+# The wind data 
+
+wind_daily <- wind_data %>%
+  mutate(date = as.Date(date)) %>%
+  group_by(site, date) %>%
+  summarise(dir_circ = mean.circular(circular(dir, units = "degrees")),
+            speed_circ = mean.circular(circular(speed, units = "degrees")))
+# save(wind_daily, file = "Data/wind_daily.RData")
+
+load("Data/wind_daily.RData") # Loading the daily wind data for each of the sites
 ```
 
-Things to do*******
+## Matching remotely sensed SST's with the wind data
 
-- Match temp and wind data
+Loading the SST datasets: 
+```{r}
+
+## Load in the sea surface temperatue datasets
+## See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) 
+
+load("Data/overlap_ts.RData")
+load("Data/insitu_MUR.RData")
+load("Data/insitu_OISST.RData")
+load("Data/insitu_G1SST.RData")
+load("Data/insitu_K10.RData")
+
+# Select only the years 2014 and 2015
+filtered_years <- function(df){
+  upwelling<- df %>% 
+  filter(year(date) %in% seq(2014, 2015)) %>% 
+  drop_na()
+}
+
+SACTN_fyears <- filtered_years(df = overlap_ts) 
+MUR_fyears <- filtered_years(df = insitu_MUR) 
+OISST_fyears <- filtered_years(df = insitu_OISST) 
+G1SST_fyears <- filtered_years(df = insitu_G1SST) 
+K10_fyears <- filtered_years(df = insitu_K10) 
+
+# save(SACTN_fyears, file = "Data/temp_2014_2015/SACTN_fyears.RData")
+# save(MUR_fyears, file = "Data/temp_2014_2015/MUR_fyears.RData")
+# save(OISST_fyears, file = "Data/temp_2014_2015/OISST_fyears.RData")
+# save(G1SST_fyears, file = "Data/temp_2014_2015/G1SST_fyears.RData")
+# save(K10_fyears, file = "Data/temp_2014_2015/K10_fyears.RData")
+
+temp_wind <- function(df){
+  combined <- df %>% 
+  left_join(wind_daily, by = c("site", "date")) %>% 
+  #select(-combi) %>% 
+  na.trim()
+  return(combined)
+}
+
+temp_wind_MUR <- temp_wind(df = MUR_fyears)
+temp_wind_SACTN <- temp_chloro(df = SACTN_fyears)
+temp_wind_OISST <- temp_chloro(df = OISST_fyears)
+temp_wind_G1SST <- temp_chloro(df = G1SST_fyears)
+temp_wind_K10 <- temp_chloro(df = K10_fyears)
+```
+
+
 - Create plots shwoing predominant wind direction during an upwelling evnt
+- Create wavelet analyses
 
 
 
