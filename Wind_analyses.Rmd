@@ -31,9 +31,17 @@ library(purrr)
 library(stlplus)
 library(zoo)
 source("functions/wind.rose.R")
+library(stlplus)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+# library(plyr)
 ```
 
-
+#############################################################
+Ignore: run from line 154
+#############################################################
 ## Wind and wave data obtained from SAWS
 
 Creating a function to load the wind and wave data:
@@ -106,8 +114,6 @@ load("Data/temp_2014_2015/SACTN_fyears.RData")
 load("Data/temp_2014_2015/K10_fyears.RData")
 ```
 
-#############################################################
-#############################################################
 This following code is unable to plot the wind patterns (wind roses) as temperature collection occured between 2014-2015 and we do not have wind data that corresponds with these years 
 
 Here I match the wind data with the SST datasets
@@ -150,7 +156,6 @@ p.wr3
 #############################################################
 
 ## Writing a funciton to load the new wind data
-
 
 ```{r define_fun8, include=TRUE}
 # load_wind <- function(wind_files) {
@@ -248,7 +253,8 @@ wind_daily <- wind_data %>%
   mutate(date = as.Date(date)) %>%
   group_by(site, date) %>%
   summarise(dir_circ = mean.circular(circular(dir, units = "degrees")),
-            speed_circ = mean.circular(circular(speed, units = "degrees")))
+            mean_speed = mean(speed))
+
 # save(wind_daily, file = "Data/wind_daily.RData")
 
 load("Data/wind_daily.RData") # Loading the daily wind data for each of the sites
@@ -296,18 +302,105 @@ temp_wind <- function(df){
 }
 
 temp_wind_MUR <- temp_wind(df = MUR_fyears)
-temp_wind_SACTN <- temp_chloro(df = SACTN_fyears)
-temp_wind_OISST <- temp_chloro(df = OISST_fyears)
-temp_wind_G1SST <- temp_chloro(df = G1SST_fyears)
-temp_wind_K10 <- temp_chloro(df = K10_fyears)
+temp_wind_SACTN <- temp_wind(df = SACTN_fyears)
+temp_wind_OISST <- temp_wind(df = OISST_fyears)
+temp_wind_G1SST <- temp_wind(df = G1SST_fyears)
+temp_wind_K10 <- temp_wind(df = K10_fyears)
 ```
 
+## Visualising the wind data
 
-- Create plots shwoing predominant wind direction during an upwelling evnt
-- Create wavelet analyses
+```{r}
 
+source("functions/wind.rose.R")
 
+renaming_func <- function(df){ 
+  renaming <- df %>% 
+  dplyr::rename(spd = mean_speed) %>%
+  dplyr::rename(dir = dir_circ)
+}
 
+temp_wind_MUR <- renaming_func(df = temp_wind_MUR)
+temp_wind_SACTN <- renaming_func(df = temp_wind_SACTN)
+temp_wind_OISST <- renaming_func(df = temp_wind_OISST)
+temp_wind_G1SST <- renaming_func(df = temp_wind_G1SST)
+temp_wind_K10 <- renaming_func(df = temp_wind_K10)
+
+## Plotting function
+
+p.wr2 <- plot.windrose(data = temp_wind_SACTN,
+              spd = "spd",
+              dir = "dir")
+
+p.wr3 <- p.wr2 + facet_wrap(~ site) +
+  theme(strip.text.x = element_text(size = 20))
+p.wr3
+```
+
+# Wavelet analyses
+
+```{r}
+
+library(plyr)
+
+temp_wind_SACTN <-  temp_wind_SACTN %>% 
+  drop_na()
+
+temp.d <- function(df){
+temp.d <- df %>% 
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, dir_circ, date)
+}
+
+temp.d <- temp.d(df = temp_wind_SACTN) 
+# temp_wind_MUR <- temp_wind(df = MUR_fyears)
+# temp_wind_SACTN <- temp_wind(df = SACTN_fyears)
+# temp_wind_OISST <- temp_wind(df = OISST_fyears)
+# temp_wind_G1SST <- temp_wind(df = G1SST_fyears)
+# temp_wind_K10 <- temp_wind(df = K10_fyears)
+
+temp.d <- temp.d %>% 
+  select(site, no, dir_circ, date)
+
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "dir_circ")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+
+ggplot(PN_prewhite, aes(x = no, y = dir_circ)) +
+  geom_hline(aes(yintercept = mean(dir_circ)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "dir_circ", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/new",plot_name,"_wind.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(PN_wave, plot_fun)
+```
 
 
 
