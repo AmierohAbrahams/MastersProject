@@ -172,13 +172,13 @@ p.wr3
 #                             full.names = TRUE, pattern = "*.txt"), load_wind)
 
 
-wind_1 <- read.delim("/home/amieroh/Documents/Masters_2019/MastersProject/Data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings="") 
+wind_1 <- read.delim("Data/Wind_data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings="") 
 colnames(wind_1) <- c("station_number", "station_name", "date", "hour", "sub", "speed", "dir") 
 
-wind_2 <- read.delim("/home/amieroh/Documents/Masters_2019/MastersProject/Data/wind_data.txt(SAWS)/wind2/wind2.txt", na.strings="")
+wind_2 <- read.delim("Data/Wind_data/wind_data.txt(SAWS)/wind2/wind2.txt", na.strings="")
 colnames(wind_2) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
 
-wind_3 <- read.delim("/home/amieroh/Documents/Masters_2019/MastersProject/Data/wind_data.txt(SAWS)/wind3/wind3.txt", na.strings="")
+wind_3 <- read.delim("Data/Wind_data/wind_data.txt(SAWS)/wind3/wind3.txt", na.strings="")
 colnames(wind_3) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
 
 # Slecting the important columns for each of the datasets
