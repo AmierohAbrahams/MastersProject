@@ -265,10 +265,10 @@ load("Data/wind_daily.RData") # Loading the daily wind data for each of the site
 Loading the SST datasets: 
 ```{r}
 
-## Load in the sea surface temperatue datasets
+## Load the sea surface temperatue datasets
 ## See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) 
 
-load("Data/overlap_ts.RData")
+load("Data/overlap_ts.RData") # overlap: Sites within the SACTN dataset overlap, these sites 
 load("Data/insitu_MUR.RData")
 load("Data/insitu_OISST.RData")
 load("Data/insitu_G1SST.RData")
@@ -301,11 +301,32 @@ temp_wind <- function(df){
   return(combined)
 }
 
-temp_wind_MUR <- temp_wind(df = MUR_fyears)
+temp_wind_MUR <- temp_wind(df = MUR_fyears) %>% 
+  drop_na()
 temp_wind_SACTN <- temp_wind(df = SACTN_fyears)
 temp_wind_OISST <- temp_wind(df = OISST_fyears)
 temp_wind_G1SST <- temp_wind(df = G1SST_fyears)
 temp_wind_K10 <- temp_wind(df = K10_fyears)
+
+speed_plot <- temp_wind_MUR %>% 
+  select(lat, lon, mean_speed) %>% 
+  group_by(lat, lon) %>% 
+  summarise(max_speed = max(mean_speed)) %>% 
+  summarise(lat = round(lat, na.rm = T),3)#%>% 
+  # dplyr::rename(Z = "mean_speed") %>% 
+  # dplyr::rename(X = "lat") %>% 
+  # dplyr::rename(Y = "lon")
+
+ maxw <- cbind(speed_plot$lon, speed_plot$lat, speed_plot$max_speed)  
+head(maxw)  
+
+rmax <- rasterFromXYZ(maxw)  
+ acol <- colorRampPalette(c("white", "blue", "darkblue"))  
+ plot(rmax, col=acol(1000), main= "Maximum wind speed reported",  
+     xlab="Longitude", ylab="Lattitude")  + lines(getMap(resolution = "high"), lwd=2)
+   
+ library(rworldmap)  
+ lines(getMap(resolution = "high"), lwd=2)  
 ```
 
 ## Visualising the wind data
@@ -313,38 +334,37 @@ temp_wind_K10 <- temp_wind(df = K10_fyears)
 ```{r}
 
 source("functions/wind.rose.R")
-
-renaming_func <- function(df){ 
-  renaming <- df %>% 
-  dplyr::rename(spd = mean_speed) %>%
-  dplyr::rename(dir = dir_circ)
-}
-
-temp_wind_MUR <- renaming_func(df = temp_wind_MUR)
-temp_wind_SACTN <- renaming_func(df = temp_wind_SACTN)
-temp_wind_OISST <- renaming_func(df = temp_wind_OISST)
-temp_wind_G1SST <- renaming_func(df = temp_wind_G1SST)
-temp_wind_K10 <- renaming_func(df = temp_wind_K10)
-
-## Plotting function
-
-p.wr2 <- plot.windrose(data = temp_wind_SACTN,
-              spd = "spd",
-              dir = "dir")
-
-p.wr3 <- p.wr2 + facet_wrap(~ site) +
-  theme(strip.text.x = element_text(size = 20))
-p.wr3
+# 
+# renaming_func <- function(df){
+#   renaming <- df %>%
+#   dplyr::rename(spd = mean_speed) %>%
+#   dplyr::rename(dir = dir_circ)
+# }
+# 
+# temp_wind_MUR <- renaming_func(df = temp_wind_MUR)
+# # temp_wind_SACTN <- renaming_func(df = temp_wind_SACTN)
+# # temp_wind_OISST <- renaming_func(df = temp_wind_OISST)
+# # temp_wind_G1SST <- renaming_func(df = temp_wind_G1SST)
+# # temp_wind_K10 <- renaming_func(df = temp_wind_K10)
+# 
+# ## Plotting function
+# 
+# p.wr2 <- plot.windrose(data = temp_wind_MUR,
+#               spd = "spd",
+#               dir = "dir")
+# 
+# p.wr3 <- p.wr2 + facet_wrap(~ site) +
+#   theme(strip.text.x = element_text(size = 20))
+# p.wr3
 ```
 
 # Wavelet analyses
 
+For the wavelet analyses
+
 ```{r}
 
 library(plyr)
-
-temp_wind_SACTN <-  temp_wind_SACTN %>% 
-  drop_na()
 
 temp.d <- function(df){
 temp.d <- df %>% 
@@ -353,12 +373,17 @@ temp.d <- df %>%
   dplyr::select(site, no, dir_circ, date)
 }
 
-temp.d <- temp.d(df = temp_wind_SACTN) 
-# temp_wind_MUR <- temp_wind(df = MUR_fyears)
-# temp_wind_SACTN <- temp_wind(df = SACTN_fyears)
-# temp_wind_OISST <- temp_wind(df = OISST_fyears)
-# temp_wind_G1SST <- temp_wind(df = G1SST_fyears)
-# temp_wind_K10 <- temp_wind(df = K10_fyears)
+#temp.d <- temp.d(df = temp_wind_SACTN)
+# temp_wind_MUR <- temp_wind_MUR %>% 
+#   drop_na()
+# temp.d <- temp.d(df = temp_wind_MUR)
+# temp_wind_OISST <- temp_wind_OISST %>% 
+#   drop_na()
+# temp.d <- temp.d(df = temp_wind_OISST)
+# temp_wind_G1SST <- temp_wind_G1SST %>% 
+#   drop_na()
+# temp.d <- temp.d(df = temp_wind_G1SST)
+# temp.d <- temp.d(df = temp_wind_K10)
 
 temp.d <- temp.d %>% 
   select(site, no, dir_circ, date)
@@ -401,6 +426,42 @@ plot_fun <- function(x, plot_name = attributes(x)$ref) {
 }
 ldply(PN_wave, plot_fun)
 ```
+
+
+## Wind speed
+
+
+```{r}
+temp_wind_MUR <- temp_wind_MUR %>% 
+    mutate(dir_circ = as.numeric(dir_circ))
+
+
+SACTN_wind_dir <- ggplot(temp_wind_SACTN, aes(x = date)) +
+  geom_path(aes(y = mean_speed)) +
+  geom_path(aes(y = insitu_temp), colour = "orange") +
+  facet_wrap(~ site, ncol = 1)  +
+  # scale_y_continuous(breaks = c(10, 20, 30 ,40, 50), labels = c("10", "20", "30", "40", "50")) +
+  theme_bw()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

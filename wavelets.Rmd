@@ -47,7 +47,7 @@ load("Data/SACTN_daily_v4.2.RData")
 
 ## Load in the rest of the datasets
 
-* See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) 
+* See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) . MCS using a long term time series to detect any extreme events occuring within the region
 
 ```{r}
 load("Data/overlap_ts.RData")
@@ -171,11 +171,11 @@ seasonal_col <- function(df){
 }
 
 
-SACTN_seasonal <- seasonal_col(df = SACTN_fyears)
-MUR_seasonal <- seasonal_col(df = MUR_fyears)
-OISST_seasonal <- seasonal_col(df = OISST_fyears)
-G1SST_seasonal <- seasonal_col(df = G1SST_fyears)
-K10_seasonal <- seasonal_col(df = K10_fyears)
+# SACTN_seasonal <- seasonal_col(df = SACTN_fyears)
+# MUR_seasonal <- seasonal_col(df = MUR_fyears)
+# OISST_seasonal <- seasonal_col(df = OISST_fyears)
+# G1SST_seasonal <- seasonal_col(df = G1SST_fyears)
+# K10_seasonal <- seasonal_col(df = K10_fyears)
 
 # save(SACTN_seasonal, file = "Data/temp_2014_2015/SACTN_seasonal.RData")
 # save(MUR_seasonal, file = "Data/temp_2014_2015/MUR_seasonal.RData")
@@ -202,6 +202,7 @@ SST_season_func <- function(df){
 seasonal_15 <- df %>% 
   filter(year == 2015 )
 }
+seasonal <-  function(df)
 
 seasonal_2015_SACTN <- SST_season_func(df = SACTN_seasonal)
 seasonal_2015_MUR <- SST_season_func(df = MUR_seasonal)
