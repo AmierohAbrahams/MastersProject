@@ -21,6 +21,10 @@ library(grid)
 library(gridExtra)
 library(mapproj)
 library(fossil)
+
+source("functions/earthdist.R") # lies in the folder labeled funtions
+source("functions/scale.bar.func.R")
+source("functions/shoreNormalTransectFunc.R")
 ```
 
 # Loading in the data
