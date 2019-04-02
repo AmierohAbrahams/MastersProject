@@ -76,7 +76,10 @@ metaData2 <- combined_US
 ## Calculate mean meta data for each coast and add to metaData2
 # Dictate coastal groupings
 
+
+```{r}
 wc <- c("Hout Bay", "Kommetjie", "Port Nolloth", "Sea Point", "Lamberts Bay", "Saldanha Bay", "Yzerfontein", "Dassen Island", "Oudekraal")
+```
 
 ```{r}
 west <- metaData2[metaData2$site %in% wc,]
