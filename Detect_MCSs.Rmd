@@ -9,7 +9,7 @@ output: html_document
 
 The first few lines of this script only looks at a time series of 10 years or greater. However, from line 360 a longer time series is used. This time series has a length of greater than 30 years and so only a few sites are used. With a longer time series I am able to detect for extreme events such as Marine Cold Spells (MCSs). 
 
-This script is very repetitive. Wavelet.Rmd creates a function to do this.
+** This script is very repetitive. Wavelet.Rmd creates a function to do this **
 
 # Libraries
 
@@ -93,7 +93,7 @@ Now we select only the sites occuring along the west coast. Thereafter, I includ
 
 ####################################################################################
 
-combined_US <- rbind(UC_1,UC_2)
+# combined_US <- rbind(UC_1,UC_2)
 #save(combined_US, file = "Data/combined_US.RData")
 SACTN_temps_US <- SACTN_daily_v4.2 %>%
   left_join(site_list[,c(4,13)], by = "index") %>%
@@ -176,7 +176,7 @@ MUR_SST <- MUR_SST %>%
   drop_na()
 ```
 
-Here I write a function to match the remotely-sensed SST to the *in-situ* collected SST
+This function matches the remotely-sensed SST to the *in-situ* collected SST
 
 ```{r}
 MUR_SST <- MUR_SST %>% 
@@ -428,7 +428,7 @@ SACTN_HB <- SACTN_split %>%
   drop_na()
 ```
 
-#SACTN
+#SACTN.....
 ```{r}
 ts <- ts2clm(SACTN_PN, climatologyPeriod = c("1974-01-01", "2016-12-31"),
              pctile = 10)
@@ -437,8 +437,8 @@ MCS <- res$climatology # Show a portion of the climatology
 MCS_events <- res$event[1:5,1:10] # Show some of the cold-spells
 # MCS <- MCS[14408:15503,] # Get the years from 2013 - 2015
 
-MCS_SACTN_PN <- event_line(res, spread = 100, metric = "intensity_cumulative",
-           start_date = "1974-01-01", end_date = "1977-12-31")
+MCS_SACTN_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "1974-01-01", end_date = "2015-12-31")
 
 #ggsave(plot = MCS1974, filename = "MCS1974.png")
 ```
@@ -457,8 +457,7 @@ res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_MUR_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
            start_date = "2011-12-31", end_date = "2014-10-30") +
-  ggtitle("MUR_PN") +
-  theme(legend = "Bottom")
+  ggtitle("MUR_PN") 
 
 MUR_SST_LB <- MUR_SST %>% 
   filter(site == "Lamberts Bay") %>% 
@@ -499,32 +498,6 @@ MCS_MUR_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
            start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("MUR_SB")
 
-MUR_SST_DI <- MUR_SST %>%
-  filter(site == "Dassen Island") %>% 
-  dplyr::rename(temp = nearest1) %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
-
-ts <- ts2clm(MUR_SST_DI, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_MUR_DI <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2011-12-31", end_date = "2014-10-30") +
-  ggtitle("MUR_DI")
-
-MUR_SST_HB <- MUR_SST %>%
-  filter(site == "Hout Bay") %>% 
-  dplyr::rename(temp = nearest1) %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
-
-ts <- ts2clm(MUR_SST_HB, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_MUR_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2011-12-31", end_date = "2014-10-30") +
-  ggtitle("MUR_HB")
-
 MUR_SST_SP <- MUR_SST %>%
   filter(site == "Sea Point") %>% 
   dplyr::rename(temp = nearest1) %>% 
@@ -564,10 +537,11 @@ MCS_MUR_Kom <- event_line(res, spread = 500, metric = "intensity_cumulative",
            start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("MUR_Kom")
 
-combined_MUR <- ggarrange(MCS_MUR_PN, MCS_MUR_LB, MCS_MUR_O, MCS_MUR_HB, MCS_MUR_SP, MCS_MUR_Kom, MCS_MUR_DI, MCS_MUR_SB, MCS_MUR_YZ, ncol = 3, nrow = 3)
+combined_MUR <- ggarrange(MCS_MUR_PN, MCS_MUR_LB, MCS_MUR_O, MCS_MUR_SP, MCS_MUR_KoM, MCS_MUR_SB, MCS_MUR_YZ, ncol = 2, nrow = 4)
 ```
 
 # G1SST
+
 ```{r}
 load("Data/G1SSTsub_SST.RData")
 
@@ -581,7 +555,7 @@ ts <- ts2clm(G1SSTsub_SST_PN, climatologyPeriod = c("1991-09-01", "2015-12-30"),
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_PN")
 
 G1SSTsub_SST_LB <- G1SSTsub_SST %>% 
@@ -594,7 +568,7 @@ ts <- ts2clm(G1SSTsub_SST_LB, climatologyPeriod = c("1991-09-01", "2015-12-30"),
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_LB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_LB")
 
 G1SSTsub_SST_SB <- G1SSTsub_SST %>% 
@@ -607,7 +581,7 @@ ts <- ts2clm(G1SSTsub_SST_SB, climatologyPeriod = c("1991-09-01", "2015-12-30"),
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_SB")
 
 G1SSTsub_SST_YZ <- G1SSTsub_SST %>% 
@@ -620,21 +594,8 @@ ts <- ts2clm(G1SSTsub_SST_YZ, climatologyPeriod = c("1991-09-01", "2015-12-30"),
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_YZ <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_YZ")
-
-G1SSTsub_SST_HB <- G1SSTsub_SST %>% 
-  filter(site == "Hout Bay") %>% 
-  dplyr::rename(temp = nearest1) %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
-
-ts <- ts2clm(G1SSTsub_SST_HB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_g1sst_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
-  ggtitle("G1SST_HB")
 
 G1SSTsub_SST_SP <- G1SSTsub_SST %>% 
   filter(site == "Sea Point") %>% 
@@ -646,7 +607,7 @@ ts <- ts2clm(G1SSTsub_SST_SP, climatologyPeriod = c("1991-09-01", "2015-12-30"),
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_SP <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_SP")
 
 
@@ -660,7 +621,7 @@ ts <- ts2clm(G1SSTsub_SST_O, climatologyPeriod = c("1991-09-01", "2015-12-30"), 
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_O <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_O")
 
 
@@ -674,21 +635,8 @@ ts <- ts2clm(G1SSTsub_SST_Kom, climatologyPeriod = c("1991-09-01", "2015-12-30")
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_Kom <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_Kom")
-
-G1SSTsub_SST_DI <- G1SSTsub_SST %>% 
-  filter(site == "Dassen Island") %>% 
-  dplyr::rename(temp = nearest1) %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
-
-ts <- ts2clm(G1SSTsub_SST_DI, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_g1sst_DI <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
-  ggtitle("G1SST_DI")
 
 G1SSTsub_SST_SB <- G1SSTsub_SST %>% 
   filter(site == "Saldanha Bay") %>% 
@@ -700,23 +648,11 @@ ts <- ts2clm(G1SSTsub_SST_SB, climatologyPeriod = c("1991-09-01", "2015-12-30"),
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_g1sst_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
+           start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("G1SST_SB")
 
-G1SSTsub_SST_HB <- G1SSTsub_SST %>% 
-  filter(site == "Hout Bay") %>% 
-  dplyr::rename(temp = nearest1) %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
 
-ts <- ts2clm(G1SSTsub_SST_HB, climatologyPeriod = c("1991-09-01", "2015-12-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_g1sst_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "1991-09-01", end_date = "1992-12-30") +
-  ggtitle("G1SST_HB")
-
-combined_G1SST <- ggarrange(MCS_g1sst_PN, MCS_g1sst_LB, MCS_g1sst_O, MCS_g1sst_SP, MCS_g1sst_Kom, MCS_g1sst_DI, MCS_g1sst_YZ, MCS_g1sst_SB, MCS_g1sst_HB, ncol = 3, nrow = 3)
+combined_G1SST <- ggarrange(MCS_g1sst_PN, MCS_g1sst_LB, MCS_g1sst_O, MCS_g1sst_SP, MCS_g1sst_Kom, MCS_g1sst_YZ, MCS_g1sst_SB, ncol = 2, nrow = 4)
 ```
 
 # OISST 
@@ -727,6 +663,7 @@ OISST_sites <- OISST_sites %>%
   dplyr::mutate(date = as.Date(date)) %>% 
   drop_na()
 
+
 OISST_PN <- OISST_sites %>% 
   filter(site == "Port Nolloth") %>% 
   select(date, temp) %>% 
@@ -735,8 +672,8 @@ OISST_PN <- OISST_sites %>%
 ts <- ts2clm(OISST_PN, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
-MCS_OISST_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+MCS_OISST_PN <- event_line(res, spread = 900, metric = "intensity_cumulative",
+           start_date = "2010-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_PN")
 
 OISST_LB <- OISST_sites %>% 
@@ -747,8 +684,8 @@ OISST_LB <- OISST_sites %>%
 ts <- ts2clm(OISST_LB, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
-MCS_OISST_LB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+MCS_OISST_LB <- event_line(res, spread = 900, metric = "intensity_cumulative",
+           start_date = "2010-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_LB")
 
 OISST_SB <- OISST_sites %>% 
@@ -760,7 +697,7 @@ ts <- ts2clm(OISST_SB, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_OISST_SB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+           start_date = "2010-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_SB")
 
 OISST_YZ <- OISST_sites %>% 
@@ -772,20 +709,8 @@ ts <- ts2clm(OISST_YZ, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_OISST_YZ <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+           start_date = "2010-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_YZ")
-
-OISST_DI <- OISST_sites %>% 
-  filter(site == "Dassen Island") %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
-
-ts <- ts2clm(OISST_DI, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_OISST_DI <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
-  ggtitle("OISST_DI")
 
 OISST_SP <- OISST_sites %>% 
   filter(site == "Sea Point") %>% 
@@ -796,7 +721,7 @@ ts <- ts2clm(OISST_SP, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_OISST_SP <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+           start_date = "2010-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_SP")
 
 OISST_Kom <- OISST_sites %>% 
@@ -808,7 +733,7 @@ ts <- ts2clm(OISST_Kom, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctil
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
 MCS_OISST_Kom <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+           start_date = "2010-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_Kom")
 
 OISST_O <- OISST_sites %>% 
@@ -819,28 +744,18 @@ OISST_O <- OISST_sites %>%
 ts <- ts2clm(OISST_O, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
 res <- detect_event(ts, coldSpells = TRUE)
 MCS <- res$climatology
-MCS_OISST_O <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
+MCS_OISST_O <- event_line(res, spread = 900, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-12-31") +
   ggtitle("OISST_O")
 
-OISST_HB <- OISST_sites %>% 
-  filter(site == "Hout Bay") %>% 
-  select(date, temp) %>% 
-  dplyr::rename(t = date)
 
-ts <- ts2clm(OISST_HB, climatologyPeriod = c("1981-09-01", "2018-06-30"), pctile = 10)
-res <- detect_event(ts, coldSpells = TRUE)
-MCS <- res$climatology
-MCS_OISST_HB <- event_line(res, spread = 500, metric = "intensity_cumulative",
-           start_date = "2016-09-01", end_date = "2018-06-30") +
-  ggtitle("OISST_HB")
-
-combined_OISST <- ggarrange(MCS_OISST_PN, MCS_OISST_LB, MCS_OISST_SB, MCS_OISST_YZ, MCS_OISST_O, MCS_OISST_HB, MCS_OISST_Kom,MCS_OISST_SP, MCS_OISST_DI)
+combined_OISST <- ggarrange(MCS_OISST_PN, MCS_OISST_LB, MCS_OISST_SB, MCS_OISST_YZ, MCS_OISST_O, MCS_OISST_Kom,MCS_OISST_SP, ncol = 2, nrow = 4)
 ```
 
 # K10
 Time series is less than 10 years and so the detection of MCS is not effective. 
 heatwaveR package may be applied to datasets that have a climatological period of >10years
+
 ```{r}
 # load("~/Documents/Masters_2019/MastersProject/Data/K10_SST.RData")
 # 
