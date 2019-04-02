@@ -65,7 +65,7 @@ Examining the intensity and duration of upwelling for the years 2014 - 2015
 ```{r}
 filtered_years <- function(df){
   upwelling<- df %>% 
-  filter(year(date) %in% seq(2014, 2015)) %>% 
+  filter(year(date) %in% seq(2012, 2015)) %>% 
   drop_na()
 }
 
@@ -87,8 +87,8 @@ K10_fyears <- filtered_years(df = insitu_K10)
 ```{r}
 
 # When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
-SACTN_fyears <- SACTN_fyears %>%
-  dplyr::rename(temp = insitu_temp)
+# SACTN_fyears <- SACTN_fyears %>%
+#   dplyr::rename(temp = insitu_temp)
 
 temp.d <- function(df){
 temp.d <- df %>% 
@@ -99,11 +99,11 @@ temp.d <- df %>%
   dplyr::select(site, no, temp, date)
 }
 
-temp.d <- temp.d(df = SACTN_fyears) 
+# temp.d <- temp.d(df = SACTN_fyears) 
 # temp.d <- temp.d(df = MUR_fyears) 
 # temp.d <- temp.d(df = OISST_fyears)
 # temp.d <- temp.d(df = G1SST_fyears) 
-# temp.d <- temp.d(df = K10_fyears) 
+temp.d <- temp.d(df = K10_fyears) 
 
 temp.d <- temp.d %>% 
   select(site, no, temp, date)
