@@ -9,3 +9,32 @@
 ## Raw data
 * Wind data for sites located along the west coast of South Africa (upwelling region)
 * Wind data obtained from 1994 - 2018 (to present)
+
+## Meetings:
+# April 2019 (Rob&AJ)
+Wavelet analyses:
+Period: Frequency at which events tend to repeat themselves over time
+Upwelling happens once every 16days.
+Longest time in upwelling events tend to be for 16days
+
+Brighter colour- shows a higher signal 
+Breaks between seasonal blocks tend to be more noticable at the coast.
+ 
+Sites:
+- Wavelet analyses: Paper and description
+- Band pass filters. Extract the main single and remove noise
+
+Upwelling questions:
+- Is it possible to identify the upwelling signal throughout the various datasets?
+- How far offshore does the SACTN signal extend?
+- Is it possible to detect the same information in the OISST data that we see in the SACTN data
+- How far off shore is the signal present in the higher resolution data
+
+To do for the next meeting:
+- Write up the various hypothesis
+- Present the findings relating to the hypotheses
+
+These include:
+* Wavelets or other reprsentatiions of the upwelling events
+* Chlorophyll
+* Wind data
