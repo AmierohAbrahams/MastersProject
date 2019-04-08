@@ -1,0 +1,538 @@
+---
+title: "methods_UC"
+author: "Amieroh Abrahams"
+date: "25 January 2019"
+output: html_document
+---
+
+# Libraries
+
+First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
+
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(plyr)
+library(lubridate)
+library(ggpubr)
+library(zoo)
+library(lubridate)
+library(FNN)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+```
+
+### Load site list SACTN data
+
+Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS). The SACTN dataset comprise of 129 *in situ* coastal seawater temperatures derived from daily measurements over up to 40 years. The SACTN temperature dataset was compiled by measuring coastal temperatures at 129 sites along the coast of South Africa, daily from 1972 until 2017. 
+
+```{r load_files1, include=TRUE}
+load("Data/site_list_v4.2.RData")
+load("Data/SACTN_daily_v4.2.RData")
+```
+
+Now we select only the sites occuring along the west coast. Thereafter, I include all the sites which had a time series of 10years or greater. This yield a 2 rows of data for Paternoster. I removed the row of data obtained by the DEA, thus ending up with all of the data being obtained from SAWS in this dataset. I then exclude the sites that do not fall within the upwelling cell. Once those sites were removed, we have a total of 4 sites. These are: Port Nolloth, Lamberts Bay, Saldanna and Yzerfontein.
+
+```{r}
+site_list_sub_UC <- site_list %>% 
+  filter(coast == "wc")
+
+SACTN_daily_wc <- site_list_sub_UC %>% 
+  filter(length >= 3650)
+
+upwelling_sites_UC <- SACTN_daily_wc[-1:-8,] 
+upwelling_sites_UC <- upwelling_sites_UC[c(-2,-5),] # New sites falling within the upwelling cell before yzerfontein
+
+SACTN_daily_temps_UC <- SACTN_daily_v4.2 %>% 
+  left_join(site_list[,c(4,13)], by = "index") %>% 
+  filter(index %in% upwelling_sites_UC$index)
+# save(SACTN_daily_temps, file = "SACTN_daily_temps.RData")
+
+SACTN_daily_temps_indexsplit_UC <- SACTN_daily_temps_UC %>% 
+  separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>% 
+  dplyr::rename(insitu_temp = temp)
+
+save(SACTN_daily_temps_indexsplit_UC, file = "Data/SACTN_daily_temps_indexsplit_UC.RData")
+```
+
+```{r}
+SACTN_monthly <- function(df) {
+  SACTN_split_monthly <- df %>%
+  mutate(month = month(date, abbr = T, label = T),
+         year = year(date)) %>%
+  group_by(index, month, year) %>%
+    mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",       
+                           ifelse(month %in% c("Apr", "May", "Jun"), "Autumn",
+                                ifelse(month %in% c("Jul", "Aug", "Sep"), "Winter",
+                                       ifelse(month %in% c("Oct", "Nov", "Dec"), "Spring","Error")))))
+  return(SACTN_split_monthly)
+}
+
+# SACTN_split_UC <- SACTN_monthly(df = SACTN_daily_temps_indexsplit_UC)
+load("~/Documents/Masters_2019/MastersProject/Data/SACTN_split_UC.RData")
+SACTN_3yr_UC <- SACTN_split_UC %>% 
+  filter(year(date) %in% seq(2014, 2015)) %>% 
+  drop_na() # Removing NA values within the dataset
+
+#save(SACTN_3yr_UC, file = "Data/SACTN_3yr_UC.RData")
+
+insitu_UC_temp <- ggplot(data = SACTN_3yr_UC, aes(x = date, y = insitu_temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+# theme_linedraw() +
+theme(legend.position = "top")
+ggsave(plot = insitu_UC_temp, filename = "Figures/insitu_UC_temp.pdf")
+```
+
+```{r}
+## MUR dataset
+MUR_Kommetjie_SST <- read_csv("Data/MUR_UC/MUR_Kommetjie_SST_timeseries_5nearest.csv")
+MUR_Oudekraal_SST <- read_csv("Data/MUR_UC/MUR_Oudekraal_SST_timeseries_5nearest.csv")
+MUR_Sea_Point_SST <- read_csv("Data/MUR_UC/MUR_Sea Point_SST_timeseries_5nearest.csv")
+
+MUR_SST_UC <- rbind( MUR_Kommetjie_SST,MUR_Sea_Point_SST,MUR_Oudekraal_SST) %>%
+  dplyr::rename(site = station)
+
+MUR_SST_UC$date <- (ymd(MUR_SST_UC$date))
+save(MUR_SST_UC, file = "Data/MUR_SST_UC.RData")
+
+load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST_UC.RData")
+MUR_SST_UC <- MUR_SST_UC %>% 
+  drop_na()
+```
+
+Here I write a function to match the remotely-sensed SST to the *in-situ* collected SST
+
+```{r}
+MUR_SST_UC <- MUR_SST_UC %>% 
+  dplyr::rename(temp = nearest1) # nearest1- 1 pixel as applied to the OISST data
+
+match_func <- function(df){
+  match <- SACTN_3yr_UC  %>%  
+  left_join(df, by = c("site", "date")) %>% 
+  na.trim()
+  return(match)
+}
+
+insitu_MUR_UC <- match_func(df = MUR_SST_UC) %>%
+  drop_na()
+
+match_plot <- function(df){
+  plot1 <- df %>% 
+ggplot(aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 2) +
+  theme_bw()
+  return(plot1)
+}
+
+MUR_plot <- match_plot(df = MUR_SST_UC)
+mur_temp_plot_UC <- ggplot(data = insitu_MUR_UC, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+#theme_linedraw() +
+theme(legend.position = "top")
+
+ggsave(plot = mur_temp_plot_UC, filename = "Figures/mur_temp_plot_UC.pdf")
+```
+
+#G1SST_sub_UC
+
+```{r}
+Kommetjie_SST <- read_csv("Data/G1SST_sub_UC/Kommetjie_SST_timeseries_5nearest.csv")
+Sea_Point_SST <- read_csv("Data/G1SST_sub_UC/Sea Point_SST_timeseries_5nearest.csv")
+Oudekraal_SST<- read_csv("Data/G1SST_sub_UC/Oudekraal_SST_timeseries_5nearest.csv")
+
+G1SST_SST_UC <- rbind(Kommetjie_SST,Sea_Point_SST,Oudekraal_SST) %>%
+  dplyr::rename(site = station)
+
+G1SST_SST_UC$date <- (ymd(G1SST_SST_UC$date))
+save(G1SST_SST_UC, file = "Data/G1SST_SST_UC.RData")
+
+load("~/Documents/Masters_2019/MastersProject/Data/G1SST_SST_UC.RData")
+G1SST_SST_UC <- G1SST_SST_UC %>% 
+  drop_na()
+```
+
+```{r}
+G1SST_SST_UC <- G1SST_SST_UC %>% 
+  dplyr::rename(temp = nearest1) # nearest1- 1 pixel as applied to the OISST data
+
+match_func <- function(df){
+  match <- SACTN_3yr_UC  %>%  
+  left_join(df, by = c("site", "date")) %>% 
+  na.trim()
+  return(match)
+}
+
+insitu_G1SST_SST_UC <- match_func(df = G1SST_SST_UC) %>%
+  drop_na()
+
+match_plot <- function(df){
+  plot1 <- df %>% 
+ggplot(aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 2) +
+  theme_bw()
+  return(plot1)
+}
+
+G1SST_SST_UC <- match_plot(df = G1SST_SST_UC)
+G1SST_temp_plot_UC <- ggplot(data = insitu_G1SST_SST_UC, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+#theme_linedraw() +
+theme(legend.position = "top")
+
+# ggsave(plot = G1SST_temp_plot_UC, filename = "Figures/G1SST_temp_plot_UC.pdf")
+```
+
+## OISST
+```{r}
+# AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
+
+OISSTDir <- "~/Documents/Masters_2019/Data_SST"
+OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
+            col.names = c("lon", "lat", "temp", "date"))
+
+#OISST <- as.tibble(fread("~/Documents/Masters_2019/MastersProject/Data/csvavhrr-only-v2-19810901-20180630.csv"))
+# Quick visualisation of the data
+# To explore the data I visualise the min temperatures along the South african coastline.
+```
+
+## Here I find the nearest SST pixels
+
+Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SST pixel to the insitu collected sites. 
+
+```{r}
+unique_pixel <- OISST %>%
+  select(lon, lat) %>%
+  unique()
+
+# Select nearest 1 pixels (k = 1)
+# here we use knnx to find the closes 1 pixels to the insitu sites
+match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+                          query = as.matrix(upwelling_sites_UC[,5:6]), k = 1)
+
+# Select SST pixels nearest to insitu sites
+pixel_match <- unique_pixel[match_index,] %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  mutate(site = upwelling_sites_UC$site)
+
+## Subsetting the OISST data to match the upwelling sites within the in situ collected temperature data
+OISST_match <- OISST %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  filter(combi %in% pixel_match$combi)
+
+OISST_match %>%
+  filter(date == max(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = temp))
+```
+
+```{r}
+OISST_sites_UC <- OISST_match %>%
+  left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
+  dplyr::rename(temp_OISST =temp)
+
+# Check that the pixel that is shared is duplicated
+# unique(combined_OISST_sites$site)
+# # Visualise time series
+# ggplot(data = OISST_sites, aes(x = date, y = temp)) +
+#   geom_line() +
+#   facet_wrap(~site)
+
+# save(OISST_sites_UC, file = "Data/OISST_sites_UC.RData")
+# load("~/Documents/MastersProject/Data/OISST_sites.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/OISST_sites_UC.RData")
+OISST_sites_UC <- OISST_sites_UC %>% 
+  dplyr::rename(temp = temp_OISST) %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  drop_na()
+```
+
+## Matching the Insitu data with the OISST SST data
+
+```{r}
+insitu_OISST_UC <- match_func(df = OISST_sites_UC)
+OISST_plot_UC <- match_plot(df = insitu_OISST_UC)
+
+OISST_temp_plot_UC <- ggplot(data = insitu_OISST_UC, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+# theme_linedraw() +
+theme(legend.position = "top")
+# ggsave(plot = OISST_temp_plot_UC, filename = "Figures/OISST_temp_plot_UC.pdf")
+```
+
+## Wavelet analyses
+
+```{r}
+load("Data/SACTN_3yr_UC.RData") 
+temp.d <- SACTN_3yr_UC %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(insitu_temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+
+SP <- temp.d %>% 
+  dplyr::filter(site == "Sea Point") %>% 
+  dplyr::select(temp, -date, -site) %>% 
+  dplyr::mutate(no = seq(1:n())) %>% 
+  dplyr::select(no, temp)
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+SP_wave <- dlply(PN_prewhite, .(site), wl.fun)
+# RWS: The order of these sites was incorrect
+# Rather get the names from the pre-existing data
+# site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
+for (i in 1:length(SP_wave)) {
+  attributes(SP_wave[[i]]) <- c(attributes(SP_wave[[i]]), ref = names(SP_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/Insitu/",plot_name,"_wavelet.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(SP_wave, plot_fun)
+# ... apply the function
+#op <- par(no.readonly = TRUE)
+# par(mfrow = c(2, 2),
+#     mar = c(2.5, 3.5, 2.5, 0.5),
+#     mgp = c(2.5, 1, 0),
+#     oma = c(0, 0, 1, 0))
+#par(op)
+# Save each of the graph seperate- graph PN, LB, saldanha Bay and Yzerfontein
+# l_ply(PN_wave, plot_fun)
+```
+
+
+```{r}
+# OISST
+# load("Data/OISST_sites.RData")
+
+temp.d <- insitu_OISST_UC %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+
+SP <- temp.d %>% 
+  dplyr::filter(site == "Sea Point") %>% 
+  dplyr::select(temp, -date, -site) %>% 
+  dplyr::mutate(no = seq(1:n())) %>% 
+  dplyr::select(no, temp)
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+SP_wave <- dlply(PN_prewhite, .(site), wl.fun)
+# RWS: The order of these sites was incorrect
+# Rather get the names from the pre-existing data
+# site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
+for (i in 1:length(SP_wave)) {
+  attributes(SP_wave[[i]]) <- c(attributes(SP_wave[[i]]), ref = names(SP_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/OISST/",plot_name,"_wavelet.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(SP_wave, plot_fun)
+```
+
+```{r}
+
+# MUR
+# load("Data/insitu_MUR.RData")
+
+temp.d <- insitu_MUR_UC %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+
+SP <- temp.d %>% 
+  dplyr::filter(site == "Sea Point") %>% 
+  dplyr::select(temp, -date, -site) %>% 
+  dplyr::mutate(no = seq(1:n())) %>% 
+  dplyr::select(no, temp)
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+SP_wave <- dlply(PN_prewhite, .(site), wl.fun)
+# RWS: The order of these sites was incorrect
+# Rather get the names from the pre-existing data
+# site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
+for (i in 1:length(SP_wave)) {
+  attributes(SP_wave[[i]]) <- c(attributes(SP_wave[[i]]), ref = names(SP_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/MUR/",plot_name,"_wavelet.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(SP_wave, plot_fun)
+```
+
+```{r}
+# load("Data/insitu_G1SST.RData")
+
+temp.d <- insitu_G1SST_SST_UC %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+
+SP <- temp.d %>% 
+  dplyr::filter(site == "Sea Point") %>% 
+  dplyr::select(temp, -date, -site) %>% 
+  dplyr::mutate(no = seq(1:n())) %>% 
+  dplyr::select(no, temp)
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+SP_wave <- dlply(PN_prewhite, .(site), wl.fun)
+# RWS: The order of these sites was incorrect
+# Rather get the names from the pre-existing data
+# site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
+for (i in 1:length(SP_wave)) {
+  attributes(SP_wave[[i]]) <- c(attributes(SP_wave[[i]]), ref = names(SP_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/G1SST/",plot_name,"_wavelet.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(SP_wave, plot_fun)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

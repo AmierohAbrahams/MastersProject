@@ -1,0 +1,404 @@
+---
+title: "Methods"
+author: "Amieroh Abrahams"
+date: "19 January 2019"
+output: html_document
+---
+
+# Libraries
+
+First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
+
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(plyr)
+library(lubridate)
+library(ggpubr)
+library(zoo)
+library(lubridate)
+library(FNN)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+```
+
+### Load site list SACTN data
+
+Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS). The SACTN dataset comprise of 129 *in situ* coastal seawater temperatures derived from daily measurements over up to 40 years. The SACTN temperature dataset was compiled by measuring coastal temperatures at 129 sites along the coast of South Africa, daily from 1972 until 2017. 
+
+```{r load_files1, include=TRUE}
+load("Data/site_list_v4.2.RData")
+load("Data/SACTN_daily_v4.2.RData")
+```
+
+Now we select only the sites occuring along the west coast. Thereafter, I include all the sites which had a time series of 10years or greater. This yield a 2 rows of data for Paternoster. I removed the row of data obtained by the DEA, thus ending up with all of the data being obtained from SAWS in this dataset. I then exclude the sites that do not fall within the upwelling cell. Once those sites were removed, we have a total of 4 sites. These are: Port Nolloth, Lamberts Bay, Saldanna and Yzerfontein.
+
+```{r}
+site_list_sub <- site_list %>% 
+  filter(coast == "wc")
+
+SACTN_daily_wc <- site_list_sub %>% 
+  filter(length >= 3650)
+
+upwelling_sites <- SACTN_daily_wc[-6,] # Here we had two rows of data for Paternoster; i removed the DEA row: All data here are now collected by SAWS 
+upwelling_sites <- upwelling_sites[-10:-14,] # Here i remove the sites that does not fall within the upwelling cell
+
+# Here I find a time series with the data occuring in the most recent years
+upwelling_sites <- upwelling_sites[c(-2, -3, -5, -6, -8),] 
+# save(upwelling_sites, file = "Data/upwelling_sites.RData")
+
+SACTN_daily_temps <- SACTN_daily_v4.2 %>% 
+  left_join(site_list[,c(4,13)], by = "index") %>% 
+  filter(index %in% upwelling_sites$index)
+# save(SACTN_daily_temps, file = "SACTN_daily_temps.RData")
+
+SACTN_daily_temps_indexsplit <- SACTN_daily_temps %>% 
+  separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>% 
+  dplyr::rename(insitu_temp = temp)
+
+# save(SACTN_daily_temps_indexsplit, file = "Data/SACTN_daily_temps_indexsplit.RData")
+```
+
+Here I add monthly and yearly column as well as a seasonal column. This is done as it allows us to compare temperature variation on a seasonal basis. Research studies done suggests that the intensity and duration of upwelling varies on a seasonal basis. Here we test this....... #Could plot on a seasonal basis##
+
+```{r}
+SACTN_monthly <- function(df) {
+  SACTN_split_monthly <- df %>%
+  mutate(month = month(date, abbr = T, label = T),
+         year = year(date)) %>%
+  group_by(index, month, year) %>%
+    mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",       
+                           ifelse(month %in% c("Apr", "May", "Jun"), "Autumn",
+                                ifelse(month %in% c("Jul", "Aug", "Sep"), "Winter",
+                                       ifelse(month %in% c("Oct", "Nov", "Dec"), "Spring","Error")))))
+  return(SACTN_split_monthly)
+}
+
+# SACTN_split <- SACTN_monthly(df = SACTN_daily_temps_indexsplit)
+# save(SACTN_split, file = "SACTN_split.RData")
+```
+
+Find where different sites have overlapping time series within this `SACTN_split` dataset. A time series with a length of 3years is long enough. The only problem is that the SST data do not overlap during these years (1998, 1999, 2000)
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/SACTN_split.RData")
+
+SACTN_3yr <- SACTN_split %>% 
+  filter(year(date) %in% seq(2015, 2016)) %>% 
+  drop_na() # Removing NA values within the dataset
+
+# save(SACTN_3yr, file = "Data/SACTN_3yr.RData")
+```
+
+```{r}
+ggplot(data = SACTN_3yr, aes(x = date, y = insitu_temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
+
+In this thesis, different remotely sensed SST datasets are used. Hence, these datasets all represent different resolutions at which data was obtained. We will make use of five different remotely sensed SST datasets, these include; the  MUR, AVHRR OISST, Pathfinder and G1SST data.
+Once the SST data were downloaded with a netCDF format i needed to convert this netCDfs to CSV
+
+## MUR dataset
+
+```{r}
+MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
+MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
+MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
+MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
+
+MUR_SST <- rbind(MUR_Lamberts_Bay,MUR_Yzerfontein, MUR_Port_Nolloth,MUR_Saldanha_Bay) %>%
+  dplyr::rename(site = station)
+
+MUR_SST$date <- (ymd(MUR_SST$date))
+
+# save(MUR_SST, file = "Data/MUR_SST.RData")
+```
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Data/MUR_SST.RData")
+
+MUR_SST <- MUR_SST %>% 
+  drop_na()
+```
+
+```{r}
+MUR_SST <- MUR_SST %>% 
+  dplyr::rename(temp = nearest1)
+
+match_func <- function(df){
+  match <- SACTN_3yr  %>%  
+  left_join(df, by = c("site", "date")) %>% 
+  na.trim()
+  return(match)
+}
+
+insitu_MUR <- match_func(df = MUR_SST) %>%
+  drop_na()
+
+insitu_MUR <- match_func(df = MUR_SST) %>%
+  drop_na()
+```
+
+```{r}
+match_plot <- function(df){
+  plot1 <- df %>% 
+ggplot(aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 2) +
+  theme_bw()
+  return(plot1)
+}
+
+MUR_plot <- match_plot(df = insitu_MUR)
+```
+
+```{r}
+ggplot(data = insitu_MUR, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
+Here I load the AVHRR OISST CSV dataset. 
+```{r}
+# AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
+
+OISSTDir <- "~/Documents/Masters_2019/Data_SST"
+# OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
+#             col.names = c("lon", "lat", "temp", "date"))
+
+#OISST <- as.tibble(fread("~/Documents/Masters_2019/MastersProject/Data/csvavhrr-only-v2-19810901-20180630.csv"))
+```
+
+# Quick visualisation of the data
+
+To explore the data I visualise the min temperatures along the South african coastline.
+
+```{r}
+OISST %>%
+  filter(date == min(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = temp))
+ggsave(plot = OISST, filename = "Figures/OISST")
+```
+
+## Here i find the nearest 5 SST pixels
+
+Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SST pixel to the insitu collected sites. In some cases however our sites are located close to eachother and as such more than one sites may have the same SST record. Here we use a pixel of 1. 
+
+```{r}
+unique_pixel <- OISST %>%
+  select(lon, lat) %>%
+  unique()
+
+# Select nearest 1 pixels (k = 1)
+# here we use knnx to find the closes 1 pixels to the insitu sites
+match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+                          query = as.matrix(upwelling_sites[,5:6]), k = 1)
+
+# Select SST pixels nearest to insitu sites
+pixel_match <- unique_pixel[match_index,] %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  mutate(site = upwelling_sites$site)
+```
+
+## Subsetting the OISST data to match the upwelling sites within the in situ collected temperature data
+
+```{r}
+OISST_match <- OISST %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  filter(combi %in% pixel_match$combi)
+```
+
+## Visualisation
+
+```{r}
+ggplot(data = OISST_match, aes(x = date, y = temp_OISST)) +
+  geom_line() +
+  facet_wrap(~combi)
+ggsave(plot = OISST_match, filename = "Figures/combined_OISST_match")
+```
+
+```{r}
+OISST_match %>%
+  filter(date == max(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = temp))
+```
+
+```{r}
+OISST_sites <- OISST_match %>%
+  left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
+  dplyr::rename(temp_OISST =temp)
+
+# Check that the pixel that is shared is duplicated
+# unique(combined_OISST_sites$site)
+# Visualise time series
+ggplot(data = OISST_sites, aes(x = date, y = temp)) +
+  geom_line() +
+  facet_wrap(~site)
+
+# save(OISST_sites, file = "Data/OISST_sites.RData")
+```
+
+```{r}
+load("~/Documents/MastersProject/Data/OISST_sites.RData")
+
+OISST_sites <- OISST_sites %>% 
+  dplyr::rename(temp = temp_OISST) %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  drop_na()
+```
+
+## Matching the Insitu data with the OISST SST data
+
+```{r}
+insitu_OISST <- match_func(df = OISST_sites)
+```
+
+```{r}
+OISST_plot <- match_plot(df = insitu_OISST)
+```
+
+```{r}
+ggplot(data = insitu_OISST, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
+## CMC dataset
+
+```{r}
+CMC_Lamberts_Bay <- read_csv("Data/CMC/CMC_Lamberts Bay_SST_timeseries_5nearest.csv")
+CMC_Port_Nolloth <- read_csv("Data/CMC/CMC_Port Nolloth_SST_timeseries_5nearest.csv")
+CMC_Saldanha_Bay <- read_csv("Data/CMC/CMC_Saldanha Bay_SST_timeseries_5nearest.csv")
+CMC_Yzerfontein <- read_csv("Data/CMC/CMC_Yzerfontein_SST_timeseries_5nearest.csv")
+
+CMC_SST <- rbind(CMC_Lamberts_Bay,CMC_Port_Nolloth, CMC_Saldanha_Bay,CMC_Yzerfontein) %>%
+  dplyr::rename(site = station)
+
+CMC_SST$date <- (ymd(CMC_SST$date))
+
+# save(CMC_SST, file = "Data/CMC_SST.RData")
+```
+
+```{r}
+load("Data/CMC_SST.RData")
+
+CMC_SST <- CMC_SST %>% 
+  drop_na()
+
+CMC_SST <- CMC_SST %>% 
+  dplyr::rename(temp = nearest1)
+
+insitu_CMC <- match_func(df = CMC_SST) %>%
+  drop_na()
+CMC_plot <- match_plot(df = insitu_CMC)
+
+ggplot(data = insitu_CMC, aes(x = date, y = temp, colour = site)) +
+geom_line(aes(group = site)) +
+labs(x = "", y = "Temperature (°C)") +
+theme(axis.text.x = element_text(angle = 45)) +
+theme_linedraw() +
+theme(legend.position = "top")
+```
+
+This code is testing out the wavelet analyses for the in situ temperature data. This is for the insitu temperature only. This plot is a wavelet analyses for all of the insitu collected data only
+
+```{r}
+load("Data/SACTN_3yr.RData")
+
+temp.d <- SACTN_3yr %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(insitu_temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+
+auto.arima(dplyr::filter(SACTN_3yr, site == "Port Nolloth")[, "insitu_temp"], max.p = 3, max.q = 3, stationary = FALSE, 
+           seasonal = FALSE)
+
+PN <- temp.d %>% 
+  dplyr::filter(site == "Port Nolloth") %>% 
+  dplyr::select(temp, -date, -site) %>% 
+  dplyr::mutate(no = seq(1:n())) %>% 
+  dplyr::select(no, temp)
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+
+# RWS: The order of these sites was incorrect
+# Rather get the names from the pre-existing data
+# site.names <- list("Port Nolloth", "Lamberts Bay", "Saldanha Bay", "Yzerfontein")
+
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+}
+
+# x <- PN_wave[[3]]
+
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/",plot_name,"_wavelet.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+
+ldply(PN_wave, plot_fun)
+
+# ... apply the function
+#op <- par(no.readonly = TRUE)
+# par(mfrow = c(2, 2),
+#     mar = c(2.5, 3.5, 2.5, 0.5),
+#     mgp = c(2.5, 1, 0),
+#     oma = c(0, 0, 1, 0))
+#par(op)
+
+# Save each of the graph seperate- graph PN, LB, saldanha Bay and Yzerfontein
+# l_ply(PN_wave, plot_fun)
+```
+
