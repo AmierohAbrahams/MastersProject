@@ -1,0 +1,116 @@
+---
+title: "Geostrophic currents"
+author: "Amieroh Abrahams"
+date: "20 March 2019"
+output: html_document
+---
+
+Geostrophic current:
+- Oceanic current in which the pressure gradient force is balanced by the coriolis effect
+- Direction of geostrophic flows is parallel to the isobars
+- Use AVISO data
+- u and v values
+
+## Extracting the AVISO data
+
+```{r}
+library(ncdf4) 
+library(data.table) 
+library(tidyverse) 
+library(reshape2) 
+library(plyr) 
+library(lubridate)
+library(stringr)
+library(doMC); doMC::registerDoMC(cores = 1)
+
+
+nc.dir <- "/home/amieroh/Documents/spatial/test/netCDF"
+csv.dir <- "/home/amieroh/Documents/spatial/test/csv"
+
+#          1         2         3         4         5         6        
+# 1234567890123456789012345678901234567890123456789012345678901234567890
+# dataset-duacs-rep-global-merged-allsat-phy-l4-v3_19930101-19951231.nc
+
+ncread <- function(nc.dir = nc.dir, csv.dir = dir){
+  nc.files <- list.files(path = nc.dir, pattern = "*.nc", full.names = T, include.dirs = T)
+  strt.date <- str_sub(basename(nc.files[1]), start = 51, end = 66)
+  end.date <- str_sub(basename(nc.files[length(nc.files)]), start = 51, end = 66)
+  nc.file <- nc.files[1]
+  ncFun <- function(nc.file = nc.files, csv.dir = csv.dir) {
+    nc <- nc_open(nc.file)
+    name.stem <- substr(basename(nc.file), 1, 48) 
+    date.stamp <- substr(basename(nc.file), 51, 66)
+    ugos <- ncvar_get(nc, varid = "ugos") %>%
+      round(4)
+    dimnames(ugos) <- list(lon = nc$dim$lon$vals,
+                           lat = nc$dim$lat$vals,
+                           time = nc$dim$time$vals)
+    sla <-
+      as.tibble(melt(ugos, value.name = "ugos"), row.names = NULL) %>%
+      dplyr::mutate(vgos = as.vector(ncvar_get(nc, varid = "vgos")),
+                    adt = as.vector(ncvar_get(nc, varid = "adt")),
+                    sla = as.vector(ncvar_get(nc, varid = "sla"))) %>%
+      dplyr::mutate(time = as.Date(time, origin = "1950-01-01 00:00:00")) %>%
+      na.omit()
+    nc_close(nc)
+    fwrite(sla,
+           file = paste0(csv.dir, name.stem, "-", strt.date, "-", end.date, ".csv"),
+           append = TRUE, col.names = FALSE)
+    rm(sla)
+  }
+  llply(nc.files, ncFun, csv.dir = csv.dir, .parallel = FALSE)
+}
+
+ncread(nc.dir, csv.dir)
+
+# coords <- c(-35, -20, 10, 20) # this is the BC
+```
+
+## Loading the AVISO data
+
+```{r}
+
+AVISODir <- "~/Documents/Masters_2019/Data_SST"
+AVISO <- fread(paste0(AVISODir, "/csvdataset-duacs-rep-global-merged-allsat-phy-l4-v3-9930101-19951231-0160101-20170515.csv"),
+            col.names = c("lon", "lat", "time", "u", "v", "sla", "adt"))
+
+AVISO <- AVISO %>%
+  dplyr::group_by(lon, lat, date) %>%
+  dplyr::summarise(u = mean(u, na.rm = TRUE),
+                   v = mean(v, na.rm = TRUE),
+                   mean.adt = mean(adt, na.rm = TRUE),
+                   mean.sla = mean(sla, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(velocity = sqrt((v^2) + (u^2)),
+                eke = 0.5 * (u^2 + v^2))
+
+
+AVISO_test1 <- AVISO%>%
+  dplyr::mutate(lon = round(lon, 0),
+                lat = round(lat, 0)) %>%
+  dplyr::group_by(lon, lat) %>%
+  dplyr::summarise(u = mean(u, na.rm = TRUE),
+                   v = mean(v, na.rm = TRUE),
+                   velocity = mean(velocity, na.rm = TRUE)) %>%
+  dplyr::ungroup()
+
+plot1 <- ggplot(AVISO_test1, aes(x = lon, y = lat)) +
+    geom_raster(aes(fill = velocity)) +
+    scale_fill_gradientn(colours = rev(rainbow(7, end = 4/6)),
+                         space = "Lab", limits = c(0, 1.45),
+                         guide = guide_colorbar(title = expression(Velocity~(m~s^{-1})),
+                                                position = "bottom",
+                                                direction = "horizontal",
+                                                barheight = unit(2, units = "mm"),
+                                                barwidth = unit(50, units = "mm"),
+                                                draw.ulim = F,
+                                                title.position = 'top',
+                                                title.hjust = 0.5,
+                                                label.hjust = 0.5)) +
+  geom_segment(data = vec,
+               aes(xend = lon + u * current_uv_scalar,
+                   yend = lat + v * current_uv_scalar, alpha = velocity),
+               arrow = arrow(angle = 20, length = unit(0.1, "cm"), type = "open"), size = 0.35, show.legend = FALSE) +
+  scale_alpha_continuous(range = c(0, 1.0))
+
+```

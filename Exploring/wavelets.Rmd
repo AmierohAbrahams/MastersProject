@@ -1,0 +1,307 @@
+---
+title: "Wavelets"
+author: "Amieroh Abrahams"
+date: "09 February 2019"
+output: html_document
+---
+
+## Script info
+
+Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2014 and 2015. Thereafter, wavelet analyses ae created per season for each individual site along the west coast of South Africa. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
+
+# Libraries
+
+First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
+
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(ggpubr)
+library(zoo)
+library(lubridate)
+library(stringr)
+library(circular)
+library(broom)
+library(ggrepel)
+library(purrr)
+library(stlplus)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+# library(plyr)
+```
+
+### Load site list SACTN data
+Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS).
+
+```{r}
+load("Data/site_list_v4.2.RData")
+load("Data/SACTN_daily_v4.2.RData")
+```
+
+## Load in the rest of the datasets
+
+* See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) . MCS using a long term time series to detect any extreme events occuring within the region
+
+```{r}
+load("Data/overlap_ts.RData")
+load("Data/insitu_MUR.RData")
+load("Data/insitu_OISST.RData")
+load("Data/insitu_G1SST.RData")
+load("Data/insitu_K10.RData")
+```
+
+
+# Time series of one year
+
+Examining the intensity and duration of upwelling for the years 2014 - 2015
+
+```{r}
+filtered_years <- function(df){
+  upwelling<- df %>% 
+  filter(year(date) %in% seq(2012, 2015)) %>% 
+  drop_na()
+}
+
+SACTN_fyears <- filtered_years(df = overlap_ts) 
+MUR_fyears <- filtered_years(df = insitu_MUR) 
+OISST_fyears <- filtered_years(df = insitu_OISST) 
+G1SST_fyears <- filtered_years(df = insitu_G1SST) 
+K10_fyears <- filtered_years(df = insitu_K10) 
+
+# save(SACTN_fyears, file = "Data/temp_2014_2015/SACTN_fyears.RData")
+# save(MUR_fyears, file = "Data/temp_2014_2015/MUR_fyears.RData")
+# save(OISST_fyears, file = "Data/temp_2014_2015/OISST_fyears.RData")
+# save(G1SST_fyears, file = "Data/temp_2014_2015/G1SST_fyears.RData")
+# save(K10_fyears, file = "Data/temp_2014_2015/K10_fyears.RData")
+```
+
+# Wavelet analyses
+
+```{r}
+
+# When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
+# SACTN_fyears <- SACTN_fyears %>%
+#   dplyr::rename(temp = insitu_temp)
+
+temp.d <- function(df){
+temp.d <- df %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+}
+
+# temp.d <- temp.d(df = SACTN_fyears) 
+# temp.d <- temp.d(df = MUR_fyears) 
+# temp.d <- temp.d(df = OISST_fyears)
+# temp.d <- temp.d(df = G1SST_fyears) 
+temp.d <- temp.d(df = K10_fyears) 
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/new",plot_name,"_wavelets.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(PN_wave, plot_fun)
+```
+
+## Examining seasonal upwelling
+
+Creating a seasonal column. Allowing me to compare the intensity/duration of upwelling on a seasonal basis. This should to be repeated for each of the sites within each of the datasets (SACTN, MUR, OISST, G1SST and K10).
+
+```{r}
+load("Data/temp_2014_2015/G1SST_fyears.RData")
+load("Data/temp_2014_2015/K10_fyears.RData")
+load("Data/temp_2014_2015/MUR_fyears.RData")
+load("Data/temp_2014_2015/OISST_fyears.RData")
+load("Data/temp_2014_2015/SACTN_fyears.RData")
+
+seasonal_col <- function(df){
+  temp_data <- df %>% 
+    mutate(month = month(date, abbr = T, label = T),
+           year = year(date)) %>% 
+    group_by(site, month, year) %>% 
+     mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",        
+                           ifelse(month %in% c("Apr", "May", "Jun"), "Autumn",
+                                ifelse(month %in% c("Jul", "Aug", "Sep"), "Winter",
+                                       ifelse(month %in% c("Oct", "Nov", "Dec"), "Spring","Error")))))
+  return(temp_data)
+}
+
+
+# SACTN_seasonal <- seasonal_col(df = SACTN_fyears)
+# MUR_seasonal <- seasonal_col(df = MUR_fyears)
+# OISST_seasonal <- seasonal_col(df = OISST_fyears)
+# G1SST_seasonal <- seasonal_col(df = G1SST_fyears)
+# K10_seasonal <- seasonal_col(df = K10_fyears)
+
+# save(SACTN_seasonal, file = "Data/temp_2014_2015/SACTN_seasonal.RData")
+# save(MUR_seasonal, file = "Data/temp_2014_2015/MUR_seasonal.RData")
+# save(OISST_seasonal, file = "Data/temp_2014_2015/OISST_seasonal.RData")
+# save(G1SST_seasonal, file = "Data/temp_2014_2015/G1SST_seasonal.RData")
+# save(K10_seasonal, file = "Data/temp_2014_2015/K10_seasonal.RData")
+
+load("Data/temp_2014_2015/SACTN_seasonal.RData")
+load("Data/temp_2014_2015/MUR_seasonal.RData")
+load("Data/temp_2014_2015/OISST_seasonal.RData")
+load("Data/temp_2014_2015/G1SST_seasonal.RData")
+load("Data/temp_2014_2015/K10_seasonal.RData")
+```
+
+A seasonal plotting representing the sea surface temperature for 2014 and 2015  
+
+```{r}
+# PN_14 <- SACTN_seasonal %>% 
+#   filter(site == "Port Nolloth") %>% 
+#   filter(year == 2014 )
+
+# creating a function to only select the year 2015
+SST_season_func <- function(df){
+seasonal_15 <- df %>% 
+  filter(year == 2015 )
+}
+seasonal <-  function(df)
+
+seasonal_2015_SACTN <- SST_season_func(df = SACTN_seasonal)
+seasonal_2015_MUR <- SST_season_func(df = MUR_seasonal)
+seasonal_2015_OISST <- SST_season_func(df = OISST_seasonal)
+seasonal_2015_G1SST <- SST_season_func(df = G1SST_seasonal)
+seasonal_2015_K10 <- SST_season_func(df = K10_seasonal)
+
+## Plotting function
+combined_seasonal <- function(df){
+  plot <- df %>% 
+    ggplot(aes(x = date, y = insitu_temp)) +
+    geom_line() +
+    facet_wrap(~season, ncol = 2, nrow = 2) +
+    theme_bw()
+}
+
+combined_seasonal_2015_SACTN <- combined_seasonal(df = seasonal_2015_SACTN)
+combined_seasonal_2015_MUR <- combined_seasonal(df = seasonal_2015_MUR)
+combined_seasonal_2015_OISST <- combined_seasonal(df = seasonal_2015_OISST)
+combined_seasonal_2015_G1SST <- combined_seasonal(df = seasonal_2015_G1SST)
+combined_seasonal_2015K10 <- combined_seasonal(df = seasonal_2015_K10)
+```
+
+Creating a wavelet analyses for the year 2015. This code creates a plot per season. The outcome and plots of this code may be found in the figures folder->seasonal_wavelets (Figures/seasonal_wavelets)
+
+```{r}
+
+# Here I rename the column "insitu-temp" to "temp", this is done in order to have it run on the same code as each of the other SST datasets
+# seasonal_15 <- seasonal_2015_SACTN %>%
+#   dplyr::rename(temp = insitu_temp)
+
+temp.d <- function(df){
+temp.d <- df %>% 
+  dplyr::group_by(site, date, season) %>% 
+  dplyr::summarise(temp = mean(temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(season, site, no, temp)
+}
+
+###### Remove the hash's to run the same code on each of these datasets####
+# temp.d <- temp.d(df = seasonal_15)  for the SACTN  seawater temp dataset
+# temp.d <- temp.d(df = seasonal_2015_MUR) #for the MUR SST dataset
+# temp.d <- temp.d(df = seasonal_2015_OISST) #for the OISST SST dataset
+# temp.d <- temp.d(df = seasonal_2015_G1SST) #for the G1SST SST dataset
+# temp.d <- temp.d(df = seasonal_2015_K10) #for the K10 SST dataset
+
+temp.d <- temp.d %>% 
+  select(season, site, no, temp)
+
+temp_seasonal <- ggplot(temp.d, aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ season, nrow = 4) +
+  theme_bw()
+
+prewhite_fun <- function(x) {
+  df <- x[, 3:4]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site, season), prewhite_fun))
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+sites_wave <- dlply(temp.d, .(site, season), wl.fun)
+
+for (i in 1:length(sites_wave)) {
+  attributes(sites_wave[[i]]) <- c(attributes(sites_wave[[i]]), ref = names(sites_wave)[i])
+}
+# x <- sites_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/seasonal",plot_name,"_wavelets.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(sites_wave, plot_fun)
+```
+
+
+```{r}
+temp.d <- temp.d %>% 
+  select(season, site, no, temp)
+
+temp_seasonal <- ggplot(temp.d, aes(x = date, y = temp)) +
+  geom_line(aes(group = site)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  facet_wrap(~ season, nrow = 4) +
+  theme_bw()
+
+```
+
