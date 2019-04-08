@@ -1,0 +1,272 @@
+---
+title: "Results_paper1"
+author: "Amieroh Abrahams"
+date: "07 April 2019"
+output: html_document
+---
+
+This scripts comprise of the analyses needed for the first section of my masters project. 
+
+# Libraries
+
+First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
+ 
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(plyr)
+library(lubridate)
+library(ggpubr)
+library(zoo)
+library(lubridate)
+library(FNN)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+library(heatwaveR)
+```
+
+## Load site list SACTN data
+
+Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS). The SACTN dataset comprise of 129 *in situ* coastal seawater temperatures derived from daily measurements over up to 40 years. The SACTN temperature dataset was compiled by measuring coastal temperatures at 129 sites along the coast of South Africa, daily from 1972 until 2017. 
+
+```{r load_files1, include=TRUE}
+load("Data/site_list_v4.2.RData")
+load("Data/SACTN_daily_v4.2.RData")
+```
+
+## Selecting the sites and creating new *in situ* datasets
+
+Now we select only the sites occuring along the west coast. The purpose of this research task is to assess whether or not the intensity of upwelling varies at va range of distances from the coastline. The data used here is obtained from different satellites and thus possess different resolutions. Here I attempt to find an overlapping time series for all of the sites along the west coast. The sites here vary between upwelling centres and further away from the upwelling centre
+
+```{r}
+site_list_sub <- site_list %>%
+  filter(coast == "wc") %>%
+  filter(length > 3650) 
+site_list_sub <- site_list_sub[c(-2, -3, -5, -6, -7,-9, -12, -13, -14),] # Here I keep all the sites with temperature obtained up to 2017
+save(site_list_sub, file = "Data_P1/site_list_sub")
+
+SACTN_US <- SACTN_daily_v4.2 %>%
+  left_join(site_list[,c(4,13)], by = "index") %>%
+  filter(index %in% site_list_sub$index) %>%
+  separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>%
+  dplyr::rename(insitu_temp = temp)
+
+# The next step is to identify the period where all sites within this dataset overlap
+SACTN_overlap <- SACTN_US %>% 
+  filter(year(date) %in% seq(1992, 2015)) %>% # The length of the time may vary depending on the question
+  drop_na() # Removing NA values within the dataset
+# save(SACTN_overlap, file = "Data_P1/SACTN_overlap.RData")
+
+# Visualising the data
+temp_plot <- function(df){
+  plot <- ggplot(data = df, aes(x = date, y = insitu_temp, colour = site)) +
+    geom_line(aes(group = site)) +
+    labs(x = "", y = "Temperature (°C)") +
+    theme(axis.text.x = element_text(angle = 45)) +
+    theme(legend.position = "top")
+}
+
+SACTN_plot <- temp_plot(df = SACTN_overlap)
+```
+
+In this thesis, different remotely-sensed SST datasets are used. Hence, these datasets represent different resolutions at which data was obtained. We will make use of five remotely-sensed SST datasets, these include; the  MUR, AVHRR OISST, K10 and G1SST data. **MODIS SST data need to be downloaded and used too**
+
+## MUR dataset
+
+```{r}
+MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
+MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
+MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
+MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
+MUR_Kommetjie <- read_csv("Data/MUR_nearest5pixels/MUR_Kommetjie_SST_timeseries_5nearest.csv")
+MUR_Sea_Point <- read_csv("Data/MUR_nearest5pixels/MUR_Sea Point_SST_timeseries_5nearest.csv")
+
+MUR_SST <- rbind(MUR_Lamberts_Bay,MUR_Yzerfontein, MUR_Port_Nolloth,MUR_Saldanha_Bay, MUR_Kommetjie, MUR_Sea_Point) %>%
+  dplyr::rename(site = station)
+
+MUR_SST$date <- (ymd(MUR_SST$date))
+MUR_SST <- MUR_SST %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  drop_na()
+
+# save(MUR_SST, file = "Data_P1/MUR_SST.RData")
+```
+
+This function matches the remotely-sensed SST to the *in-situ* collected SST
+
+```{r}
+match_func <- function(df){
+  match <- SACTN_overlap  %>%  
+  left_join(df, by = c("site", "date")) %>% 
+  na.trim()
+  return(match)
+}
+
+insitu_MUR <- match_func(df = MUR_SST) %>%
+  drop_na()
+# save(insitu_MUR, file = "Data_P1/insitu_MUR.RData")
+
+# Basic visualisations
+match_plot <- function(df){
+  plot1 <- df %>% 
+ggplot(aes(x = date, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 2) +
+  theme_bw()
+  return(plot1)
+}
+
+MUR_plot <- match_plot(df = insitu_MUR)
+
+
+temp_plot <- function(df){
+  temp_plot <- df %>% 
+  ggplot(aes(x = date, y = temp, colour = site)) +
+    geom_line(aes(group = site)) +
+    labs(x = "", y = "Temperature (°C)") +
+    theme(axis.text.x = element_text(angle = 45)) +
+    theme(legend.position = "top")
+}
+MUR_plot <- temp_plot(df = insitu_MUR)
+```
+
+## G1SST dataset
+
+```{r}
+Lamberts_Bay <- read_csv("Data/G1SST_sub/Lamberts Bay_SST_timeseries_5nearest.csv")
+Port_Nolloth <- read_csv("Data/G1SST_sub/Port Nolloth_SST_timeseries_5nearest.csv")
+Saldanha_Bay <- read_csv("Data/G1SST_sub/Saldanha Bay_SST_timeseries_5nearest.csv")
+Yzerfontein <- read_csv("Data/G1SST_sub/Yzerfontein_SST_timeseries_5nearest.csv")
+Kommetjie_SST <- read_csv("Data/G1SST_sub/Kommetjie_SST_timeseries_5nearest.csv")
+Sea_Point_SST<- read_csv("Data/G1SST_sub/Sea Point_SST_timeseries_5nearest.csv")
+
+G1SSTsub_SST <- rbind(Lamberts_Bay, Port_Nolloth, Saldanha_Bay, Yzerfontein, Kommetjie_SST, Sea_Point_SST) %>%
+  dplyr::rename(site = station)
+
+G1SSTsub_SST$date <- (ymd(G1SSTsub_SST$date))
+# save(G1SSTsub_SST, file = "Data_P1/G1SSTsub_SST.RData")
+
+G1SSTsub_SST <- G1SSTsub_SST %>% 
+  drop_na() %>% 
+  dplyr::rename(temp = nearest1)
+
+insitu_G1SST <- match_func(df = G1SSTsub_SST) 
+save(insitu_G1SST, file = "Data_P1/insitu_G1SST.RData")
+G1SST_plot <- match_plot(df = insitu_G1SST )
+G1SST_temp_plot <- temp_plot(df = insitu_G1SST)
+```
+
+# K10
+
+```{r}
+Lamberts_Bay <- read_csv("Data/K10/K10_Lamberts Bay_SST_timeseries_5nearest.csv")
+Port_Nolloth <- read_csv("Data/K10/K10_Port Nolloth_SST_timeseries_5nearest.csv")
+Saldanha_Bay <- read_csv("Data/K10/K10_Saldanha Bay_SST_timeseries_5nearest.csv")
+Yzerfontein <- read_csv("Data/K10/K10_Yzerfontein_SST_timeseries_5nearest.csv")
+Kommetjie <- read_csv("Data/K10/K10_Kommetjie_SST_timeseries_5nearest.csv")
+Sea_Point <- read_csv("Data/K10/K10_Sea Point_SST_timeseries_5nearest.csv")
+
+K10_SST <- rbind(Lamberts_Bay, Yzerfontein, Port_Nolloth, Saldanha_Bay, Kommetjie, Sea_Point) %>%
+  dplyr::rename(site = station)
+K10_SST$date <- (ymd(K10_SST$date))
+save(K10_SST, file = "Data_P1/K10_SST.RData")
+
+K10_SST <- K10_SST %>% 
+  drop_na()
+K10_SST <- K10_SST %>% 
+  dplyr::rename(temp = nearest1)
+
+insitu_K10 <- match_func(df = K10_SST) 
+# save(insitu_K10, file = "Data_P1/insitu_K10.RData")
+
+K10_plot <- match_plot(df = insitu_K10)
+k10_temp_plot <- temp_plot(df = insitu_K10)
+```
+
+## OISST dataset
+
+```{r}
+
+OISSTDir <- "~/Documents/Masters_2019/Data_SST"
+OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
+            col.names = c("lon", "lat", "temp", "date"))
+
+# Visualise the data
+# To explore the data I visualise the min temperatures along the South african coastline.
+
+OISST %>%
+  filter(date == min(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = temp))
+```
+
+## Here I find the nearest SST pixels
+
+Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SST pixel to the insitu collected sites. 
+
+```{r}
+
+load("Data_P1/SACTN_overlap.RData") # Loading the SACTN_overlap dataset which allows me to match it to the OISST data 
+
+unique_pixel <- OISST %>%
+  select(lon, lat) %>%
+  unique()
+
+# Select nearest 1 pixels (k = 1)
+# Here I use knnx to find the closes 1 pixels to the insitu sites
+match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+                      query = as.matrix(SACTN_overlap[,5:6]), k = 1)
+
+# Select SST pixels nearest to insitu sites
+pixel_match <- unique_pixel[match_index,] %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  mutate(site = SACTN_overlap$site)
+# save(pixel_match, file = "Data_P1/pixel_match.RData")
+load("Data_P1/pixel_match.RData")
+
+# Subsetting the OISST data to match the upwelling sites within the in situ collected temperature data
+OISST_match <- OISST %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  filter(combi %in% pixel_match$combi)
+# save(OISST_match, file = "Data_P1/OISST_match.RData")
+
+load("Data_P1/OISST_match.RData")
+OISST_sites <- OISST_match %>%
+  left_join(pixel_match, by = c("combi", "lon", "lat")) %>%
+  dplyr::rename(temp_OISST =temp)
+
+# Visualise time series
+ggplot(data = OISST_sites, aes(x = date, y = temp)) +
+  geom_line() +
+  facet_wrap(~site)
+
+# save(OISST_sites, file = "Data/OISST_sites.RData")
+load("~/Documents/Masters_2019/MastersProject/Data/OISST_sites.RData")
+OISST_sites <- OISST_sites %>% 
+  dplyr::rename(temp = temp_OISST) %>%
+  dplyr::mutate(date = as.Date(date)) %>% 
+  drop_na()
+```
+
+## Matching the Insitu data with the OISST SST data
+```{r}
+insitu_OISST <- match_func(df = OISST_sites)
+# save(insitu_OISST, file = "Data/insitu_OISST.RData")
+OISST_plot <- match_plot(df = insitu_OISST)
+OISST_temp_plot <- temp_plot(df = insitu_OISST)
+```
+
+
+
+
+
+
+
