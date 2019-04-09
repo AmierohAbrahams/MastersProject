@@ -37,8 +37,8 @@ library(heatwaveR)
 Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS). The SACTN dataset comprise of 129 *in situ* coastal seawater temperatures derived from daily measurements over up to 40 years. The SACTN temperature dataset was compiled by measuring coastal temperatures at 129 sites along the coast of South Africa, daily from 1972 until 2017. 
 
 ```{r load_files1, include=TRUE}
-load("Data/site_list_v4.2.RData")
-load("Data/SACTN_daily_v4.2.RData")
+load("Data_P1/site_list_v4.2.RData")
+load("Data_P1/SACTN_daily_v4.2.RData")
 ```
 
 ## Selecting the sites and creating new *in situ* datasets
@@ -50,7 +50,7 @@ site_list_sub <- site_list %>%
   filter(coast == "wc") %>%
   filter(length > 3650) 
 site_list_sub <- site_list_sub[c(-2, -3, -5, -6, -7,-9, -12, -13, -14),] # Here I keep all the sites with temperature obtained up to 2017
-save(site_list_sub, file = "Data_P1/site_list_sub")
+save(site_list_sub, file = "Data_P1/site_list_sub.Rdata")
 
 SACTN_US <- SACTN_daily_v4.2 %>%
   left_join(site_list[,c(4,13)], by = "index") %>%
@@ -76,7 +76,7 @@ temp_plot <- function(df){
 SACTN_plot <- temp_plot(df = SACTN_overlap)
 ```
 
-In this thesis, different remotely-sensed SST datasets are used. Hence, these datasets represent different resolutions at which data was obtained. We will make use of five remotely-sensed SST datasets, these include; the  MUR, AVHRR OISST, K10 and G1SST data. **MODIS SST data need to be downloaded and used too**
+In this thesis, different remotely-sensed SST datasets are used. Hence, these datasets represent different resolutions at which data was obtained. 
 
 ## MUR dataset
 
@@ -109,10 +109,6 @@ match_func <- function(df){
   return(match)
 }
 
-insitu_MUR <- match_func(df = MUR_SST) %>%
-  drop_na()
-# save(insitu_MUR, file = "Data_P1/insitu_MUR.RData")
-
 # Basic visualisations
 match_plot <- function(df){
   plot1 <- df %>% 
@@ -124,9 +120,6 @@ ggplot(aes(x = date, y = temp)) +
   return(plot1)
 }
 
-MUR_plot <- match_plot(df = insitu_MUR)
-
-
 temp_plot <- function(df){
   temp_plot <- df %>% 
   ggplot(aes(x = date, y = temp, colour = site)) +
@@ -135,6 +128,12 @@ temp_plot <- function(df){
     theme(axis.text.x = element_text(angle = 45)) +
     theme(legend.position = "top")
 }
+
+## Matching the in-situ data with the G1SST SST data
+insitu_MUR <- match_func(df = MUR_SST) %>%
+  drop_na()
+# save(insitu_MUR, file = "Data_P1/insitu_MUR.RData")
+MUR_plot <- match_plot(df = insitu_MUR)
 MUR_plot <- temp_plot(df = insitu_MUR)
 ```
 
@@ -158,8 +157,9 @@ G1SSTsub_SST <- G1SSTsub_SST %>%
   drop_na() %>% 
   dplyr::rename(temp = nearest1)
 
+## Matching the Insitu data with the G1SST SST data
 insitu_G1SST <- match_func(df = G1SSTsub_SST) 
-save(insitu_G1SST, file = "Data_P1/insitu_G1SST.RData")
+# save(insitu_G1SST, file = "Data_P1/insitu_G1SST.RData")
 G1SST_plot <- match_plot(df = insitu_G1SST )
 G1SST_temp_plot <- temp_plot(df = insitu_G1SST)
 ```
@@ -184,9 +184,9 @@ K10_SST <- K10_SST %>%
 K10_SST <- K10_SST %>% 
   dplyr::rename(temp = nearest1)
 
+## Matching the Insitu data with the K10 SST data
 insitu_K10 <- match_func(df = K10_SST) 
 # save(insitu_K10, file = "Data_P1/insitu_K10.RData")
-
 K10_plot <- match_plot(df = insitu_K10)
 k10_temp_plot <- temp_plot(df = insitu_K10)
 ```
@@ -214,7 +214,7 @@ Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SS
 
 ```{r}
 
-load("Data_P1/SACTN_overlap.RData") # Loading the SACTN_overlap dataset which allows me to match it to the OISST data 
+load("Data_P1/site_list_sub.RData") # Loading the SACTN_overlap dataset which allows me to match it to the OISST data 
 
 unique_pixel <- OISST %>%
   select(lon, lat) %>%
@@ -223,14 +223,11 @@ unique_pixel <- OISST %>%
 # Select nearest 1 pixels (k = 1)
 # Here I use knnx to find the closes 1 pixels to the insitu sites
 match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
-                      query = as.matrix(SACTN_overlap[,5:6]), k = 1)
+                      query = as.matrix(site_list_sub[,5:6]), k = 1)
 
-# Select SST pixels nearest to insitu sites
 pixel_match <- unique_pixel[match_index,] %>%
   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-  mutate(site = SACTN_overlap$site)
-# save(pixel_match, file = "Data_P1/pixel_match.RData")
-load("Data_P1/pixel_match.RData")
+  mutate(site = site_list_sub$site)
 
 # Subsetting the OISST data to match the upwelling sites within the in situ collected temperature data
 OISST_match <- OISST %>%
@@ -238,34 +235,22 @@ OISST_match <- OISST %>%
   filter(combi %in% pixel_match$combi)
 # save(OISST_match, file = "Data_P1/OISST_match.RData")
 
-load("Data_P1/OISST_match.RData")
 OISST_sites <- OISST_match %>%
   left_join(pixel_match, by = c("combi", "lon", "lat")) %>%
   dplyr::rename(temp_OISST =temp)
 
-# Visualise time series
-ggplot(data = OISST_sites, aes(x = date, y = temp)) +
-  geom_line() +
-  facet_wrap(~site)
-
-# save(OISST_sites, file = "Data/OISST_sites.RData")
-load("~/Documents/Masters_2019/MastersProject/Data/OISST_sites.RData")
 OISST_sites <- OISST_sites %>% 
   dplyr::rename(temp = temp_OISST) %>%
   dplyr::mutate(date = as.Date(date)) %>% 
   drop_na()
-```
+# save(OISST_sites, file = "Data_P1/OISST_sites.RData")
 
 ## Matching the Insitu data with the OISST SST data
-```{r}
 insitu_OISST <- match_func(df = OISST_sites)
-# save(insitu_OISST, file = "Data/insitu_OISST.RData")
+# save(insitu_OISST, file = "Data_P1/insitu_OISST.RData")
 OISST_plot <- match_plot(df = insitu_OISST)
 OISST_temp_plot <- temp_plot(df = insitu_OISST)
 ```
-
-
-
 
 
 

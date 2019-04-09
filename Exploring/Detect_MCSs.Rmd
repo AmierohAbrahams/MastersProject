@@ -219,11 +219,11 @@ MUR_plot <- temp_plot(df = insitu_MUR)
 ```{r}
 # AVHRR <- read_csv("data/csvavhrr-only-v2-19810901-20180630.csv")
 
-# OISSTDir <- "~/Documents/Masters_2019/Data_SST"
-# OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
-#             col.names = c("lon", "lat", "temp", "date"))
+OISSTDir <- "~/Documents/Masters_2019/Data_SST"
+OISST <- fread(paste0(OISSTDir, "/csvavhrr-only-v2-19810901-20180630.csv"),
+            col.names = c("lon", "lat", "temp", "date"))
 
-OISST <- as.tibble(fread("Data/csvavhrr-only-v2-19810901-20180630.csv"))
+# OISST <- as.tibble(fread("Data/csvavhrr-only-v2-19810901-20180630.csv"))
 # # Quick visualisation of the data
 # # To explore the data I visualise the min temperatures along the South african coastline.
 # 
@@ -239,14 +239,14 @@ OISST <- as.tibble(fread("Data/csvavhrr-only-v2-19810901-20180630.csv"))
 Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SST pixel to the insitu collected sites. 
 
 ```{r}
-# unique_pixel <- OISST %>%
-#   select(lon, lat) %>%
-#   unique()
+unique_pixel <- OISST %>%
+  select(lon, lat) %>%
+  unique()
 # 
 # # Select nearest 1 pixels (k = 1)
 # # here we use knnx to find the closes 1 pixels to the insitu sites
-# match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
-#                           query = as.matrix(combined_US[,5:6]), k = 1)
+match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+                          query = as.matrix(combined_US[,5:6]), k = 1)
 # 
 # # Select SST pixels nearest to insitu sites
 # pixel_match <- unique_pixel[match_index,] %>%
