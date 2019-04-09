@@ -252,6 +252,126 @@ OISST_plot <- match_plot(df = insitu_OISST)
 OISST_temp_plot <- temp_plot(df = insitu_OISST)
 ```
 
+## Wavelets
+
+Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2014 and 2015. Thereafter, wavelet analyses ae created per season for each individual site along the west coast of South Africa. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
+
+### Load site list SACTN data
+Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS).
+
+```{r}
+load("Data_P1/site_list_v4.2.RData")
+load("Data_P1/SACTN_daily_v4.2.RData")
+```
+
+## Load in the rest of the datasets
+
+* See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) . MCS using a long term time series to detect any extreme events occuring within the region
+
+```{r}
+load("Data_P1/SACTN_overlap.RData")
+load("Data_P1/insitu_MUR.RData")
+load("Data_P1/insitu_OISST.RData")
+load("Data_P1/insitu_G1SST.RData")
+load("Data_P1/insitu_K10.RData")
+```
+
+
+# Time series of one year
+
+Examining the intensity and duration of upwelling for the years 2014 - 2015
+
+```{r}
+filtered_years <- function(df){
+  upwelling<- df %>% 
+  filter(year(date) %in% seq(2002, 2015)) %>% 
+  drop_na()
+}
+
+SACTN_fyears <- filtered_years(df = SACTN_overlap) 
+MUR_fyears <- filtered_years(df = insitu_MUR) 
+OISST_fyears <- filtered_years(df = insitu_OISST) 
+G1SST_fyears <- filtered_years(df = insitu_G1SST) 
+K10_fyears <- filtered_years(df = insitu_K10) 
+
+# save(SACTN_fyears, file = "Data/temp_2014_2015/SACTN_fyears.RData")
+# save(MUR_fyears, file = "Data/temp_2014_2015/MUR_fyears.RData")
+# save(OISST_fyears, file = "Data/temp_2014_2015/OISST_fyears.RData")
+# save(G1SST_fyears, file = "Data/temp_2014_2015/G1SST_fyears.RData")
+# save(K10_fyears, file = "Data/temp_2014_2015/K10_fyears.RData")
+```
+
+# Wavelet analyses
+
+```{r}
+# When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
+# SACTN_fyears <- SACTN_fyears %>%
+#   dplyr::rename(temp = insitu_temp)
+
+temp.d <- function(df){
+temp.d <- df %>% 
+  dplyr::group_by(site, date) %>% 
+  dplyr::summarise(temp = mean(temp, na.rm = T)) %>%
+  dplyr::mutate(no = seq(1:n())) %>%
+  dplyr::ungroup() %>% 
+  dplyr::select(site, no, temp, date)
+}
+
+# temp.d <- temp.d(df = SACTN_fyears) 
+# temp.d <- temp.d(df = MUR_fyears) 
+# temp.d <- temp.d(df = OISST_fyears)
+# temp.d <- temp.d(df = G1SST_fyears) 
+temp.d <- temp.d(df = K10_fyears) 
+
+temp.d <- temp.d %>% 
+  select(site, no, temp, date)
+
+prewhite_fun <- function(x) {
+  df <- x[, 2:3]
+  out <- prewhiteAR(df, order = 3, method = "mle", aic = TRUE,
+             genplot = FALSE, verbose = FALSE)
+  colnames(out) <- c("no", "temp")
+  return(out)
+  }
+PN_prewhite <- as.tibble(ddply(temp.d, .(site), prewhite_fun))
+
+ggplot(PN_prewhite, aes(x = no, y = temp)) +
+  geom_hline(aes(yintercept = mean(temp)), colour = "salmon") +
+  geom_line() +
+  facet_wrap(~ site, nrow = 4) +
+  theme_bw()
+
+wl.fun <- function(x) {
+  analyze.wavelet(x, "temp", loess.span = 0, dt = 1,
+                   dj = 1/50, lowerPeriod = 2, make.pval = TRUE, n.sim = 50, 
+                   method = "white.noise", verbose = FALSE)
+}
+
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+
+for (i in 1:length(PN_wave)) {
+  attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
+}
+# x <- PN_wave[[3]]
+plot_fun <- function(x, plot_name = attributes(x)$ref) {
+  png(filename = paste0("Figures/new",plot_name,"_wavelets.png"),
+      width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
+  wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
+           timelab = "Days", verbose = FALSE, useRaster = TRUE,
+           periodlab = "Period", lwd = 1, graphics.reset = FALSE,
+           main = plot_name)
+  dev.off()
+}
+ldply(PN_wave, plot_fun)
+```
+
+
+
+
+
+
+
+
 
 
 
