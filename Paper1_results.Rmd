@@ -7,7 +7,7 @@ output: html_document
 
 This scripts comprise of the analyses needed for the first section of my masters project. 
 
-# Libraries
+# Loading libraries
 
 First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
  
@@ -30,6 +30,23 @@ library(astrochron)
 library(WaveletComp)
 library(data.table)
 library(heatwaveR)
+library(viridis)
+library(ggrepel)
+library(plyr)
+library(maptools)
+library(sp)
+library(geosphere)
+library(marmap)
+library(PBSmapping)
+library(scales)
+library(grid)
+library(gridExtra)
+library(fossil)
+library(mapproj)
+library(rgeos)
+
+## Functions
+source("functions/earthdist.R")
 ```
 
 ## Load site list SACTN data
@@ -266,8 +283,6 @@ load("Data_P1/SACTN_daily_v4.2.RData")
 
 ## Load in the rest of the datasets
 
-* See the Dectect_MCS.Rmd script for more info. The datasets loaded here are only for temperatures collected between the years 1992-2016. However if a longer time series is required changes may  be made to the Dectect_MCS.Rmd script (line 136) . MCS using a long term time series to detect any extreme events occuring within the region
-
 ```{r}
 load("Data_P1/SACTN_overlap.RData")
 load("Data_P1/insitu_MUR.RData")
@@ -276,7 +291,6 @@ load("Data_P1/insitu_G1SST.RData")
 load("Data_P1/insitu_K10.RData")
 ```
 
-
 # Time series of one year
 
 Examining the intensity and duration of upwelling for the years 2014 - 2015
@@ -284,7 +298,7 @@ Examining the intensity and duration of upwelling for the years 2014 - 2015
 ```{r}
 filtered_years <- function(df){
   upwelling<- df %>% 
-  filter(year(date) %in% seq(2002, 2015)) %>% 
+  filter(year(date) %in% seq(2010, 2014)) %>% 
   drop_na()
 }
 
@@ -293,20 +307,15 @@ MUR_fyears <- filtered_years(df = insitu_MUR)
 OISST_fyears <- filtered_years(df = insitu_OISST) 
 G1SST_fyears <- filtered_years(df = insitu_G1SST) 
 K10_fyears <- filtered_years(df = insitu_K10) 
-
-# save(SACTN_fyears, file = "Data/temp_2014_2015/SACTN_fyears.RData")
-# save(MUR_fyears, file = "Data/temp_2014_2015/MUR_fyears.RData")
-# save(OISST_fyears, file = "Data/temp_2014_2015/OISST_fyears.RData")
-# save(G1SST_fyears, file = "Data/temp_2014_2015/G1SST_fyears.RData")
-# save(K10_fyears, file = "Data/temp_2014_2015/K10_fyears.RData")
 ```
 
 # Wavelet analyses
 
 ```{r}
 # When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
-# SACTN_fyears <- SACTN_fyears %>%
-#   dplyr::rename(temp = insitu_temp)
+
+SACTN_fyears <- SACTN_fyears %>%
+  dplyr::rename(temp = insitu_temp)
 
 temp.d <- function(df){
 temp.d <- df %>% 
@@ -317,11 +326,11 @@ temp.d <- df %>%
   dplyr::select(site, no, temp, date)
 }
 
-# temp.d <- temp.d(df = SACTN_fyears) 
+temp.d <- temp.d(df = SACTN_fyears) 
 # temp.d <- temp.d(df = MUR_fyears) 
 # temp.d <- temp.d(df = OISST_fyears)
 # temp.d <- temp.d(df = G1SST_fyears) 
-temp.d <- temp.d(df = K10_fyears) 
+# temp.d <- temp.d(df = K10_fyears) 
 
 temp.d <- temp.d %>% 
   select(site, no, temp, date)
@@ -354,7 +363,7 @@ for (i in 1:length(PN_wave)) {
 }
 # x <- PN_wave[[3]]
 plot_fun <- function(x, plot_name = attributes(x)$ref) {
-  png(filename = paste0("Figures/new",plot_name,"_wavelets.png"),
+  png(filename = paste0("Figures",plot_name,"_wavelets.png"),
       width = 800, height = 600, units = "px", pointsize = 12, bg = "white")
   wt.image(x, siglvl = 0.05, col.contour = "black", color.key = "quantile",
            timelab = "Days", verbose = FALSE, useRaster = TRUE,
@@ -362,7 +371,251 @@ plot_fun <- function(x, plot_name = attributes(x)$ref) {
            main = plot_name)
   dev.off()
 }
-ldply(PN_wave, plot_fun)
+ldply(PN_wave, plot_fun) 
+```
+
+############################################################################################################################################
+
+# Calculating a shore transect
+The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km). Then create wavelet analyses (or another analyses) where I compare how the intensity and duration of upwelling vary at different distances from the coastline. So would I have a dataset with temperature at 15km then at 25km then at 35km and then at 50km and so on...?
+
+```{r}
+load("Data_P1/site_list_sub.Rdata")
+west <- site_list_sub
+west$coast <- "west" # Chnages wc to west
+
+load("Data_P1/africa_coast.RData")
+
+## Downloading the bathy data from NOAA
+# Download mid-res bathymetry data
+# sa_lat <- c(-38, -24.5); sa_lon <- c(11.5, 35.5)
+# sa_bathy <- as.xyz(getNOAA.bathy(lon1 = sa_lon[1], lon2 = sa_lon[2], lat1 = sa_lat[1], lat2 = sa_lat[2], resolution = 4))
+# colnames(sa_bathy) <- c("lon", "lat", "depth")
+# sa_bathy <- sa_bathy[sa_bathy$depth <= 0,]
+# save(sa_bathy, file = "Data_P1/bathy/sa_bathy.RData")
+
+# Loading in the newly downloaded bathymetry data
+load("Data_P1/bathy/sa_bathy.RData")
+
+# This function takes one site (e.g. one set of lon/lats) and calculates a shore normal transect
+shore.normal.transect <- function(site, width = 2){
+  # Find the site on the coastline and it's nearest neighbour points
+  coords <- data.frame(lon = site$lon, lat = site$lat)
+  coords2 <- knnx.index(africa_coast[,1:2], as.matrix(coords), k = 1)
+  coords3 <- data.frame(site = site$site, africa_coast[c(coords2-width, coords2+width),]) 
+  coords3 <- coords3[2:1,1:3]
+  # Define the shore normal transect bearing
+  heading <- earth.bear(coords3[1,2], coords3[1,3], coords3[2,2], coords3[2,3]) + 90
+  if(heading >= 360){
+    heading <- heading-360
+  } else {
+    heading <- heading
+  }
+  heading2 <- data.frame(site = site$site, lon = site$lon, lat = site$lat, heading)
+  return(heading2)
+}
+
+# Creating the transects
+site_transects <- data.frame()
+for(i in 1:length(west$site)){
+ site <- west[i,]
+ site_transect <- shore.normal.transect(site, 2)
+ site_transects <- rbind(site_transects, site_transect)
+}
+
+# Manually correcting Sea Point and Kommetjie
+site_transects$heading[5:6] <- 290 
+save(site_transects, file = "Data_P1/site_transects.RData")
+load("Data_P1/site_transects.RData")
+
+# This function takes one site (e.g. one set of lon/lats) and calculates a shore normal transect
+# It then extracts a lat/ lon point every X kilometres until reaching a specified isobath
+
+transect.pixel.isobath <- function(site, distance = 25000, isobath = 999){ # Only at a distance of 25000km
+  # Extract coordinates
+  coords <- data.frame(lon = site$lon, lat = site$lat)
+  # Find lon/ lats every X metres until the chosen isobath is reached
+  pixels <- data.frame()
+  deep <- 999
+  while(deep > isobath){
+    # Find depth at distance step
+    coords2 <- as.data.frame(destPoint(p = coords, b = site$heading, d = distance))
+    sitesIdx <- knnx.index(sa_bathy[,1:2], as.matrix(coords2), k = 1)
+    bathy2 <- sa_bathy[sitesIdx,]
+    bathy2 <- bathy2[complete.cases(bathy2$depth),]
+    bathy3 <- data.frame(site = site$site, lon = bathy2$lon, lat = bathy2$lat, 
+                         heading = site$heading, depth = bathy2$depth)
+    pixels <- rbind(pixels, bathy3)
+    coords <- coords2
+    deep <- bathy2$depth
+  }
+  pixels2 <- pixels[pixels$depth > -999,] # This may remove the only row of data
+  if(nrow(pixels2) < 1){
+    pixels2 <- data.frame(site, depth = NA)
+  }else{
+    pixels2 <- pixels2
+  }
+  return(pixels2)
+}
+
+# Pixel points
+site_pixels <- data.frame()
+for(i in 1:length(west$site)){
+  site <- site_transects[i,]
+  site_pixel <- transect.pixel.isobath(site, 25000, -900)
+  site_pixels <- rbind(site_pixels, site_pixel)
+}
+
+save(site_pixels, file = "Data_P1/site_pixels.RData")
+load("Data_P1/site_pixels.RData")
+
+# Bounding box
+  # Only one is made in order to know how large the the geom_point() squares should be made to match
+test <- data.frame(xmin = destPoint(p = site_pixels[1,2:3], b = 270, d = 12500)[1],
+                   xmax = destPoint(p = site_pixels[1,2:3], b = 90, d = 12500)[1],
+                   ymin = destPoint(p = site_pixels[1,2:3], b = 180, d = 12500)[2],
+                   ymax = destPoint(p = site_pixels[1,2:3], b = 0, d = 12500)[2])
+```
+
+## Create a visualisation of the sites at the different distances from the coastline
+****Fix: Fill to show the temperature variation at Benguela coast| also fix the site names*
+
+```{r}
+
+load("Data_P1/south_africa_coast.RData")
+load("Data_P1/bathy/sa_bathy.RData")
+names(south_africa_coast)[1] <- "lon"
+
+# Manually divide up coastline
+wc <- south_africa_coast[291:410,]
+
+# Define plotting parameters
+sa_lats <- c(-37, -27); sa_lons <- c(14, 34)
+
+# Plotting with pixel boxes
+plot1 <- ggplot() +
+ geom_contour(data = bathy[bathy$depth >= -250,], aes(x = lon, y = lat, z = depth),
+               colour = "grey20", alpha = 0.7, size = 0.2, binwidth = 200, na.rm = TRUE, show.legend = FALSE) +
+  stat_contour(data = sa_bathy[sa_bathy$depth < -250,], aes(x = lon, y = lat, z = depth, alpha = ..level..),
+               colour = "grey20", size = 0.1, binwidth = 1000, na.rm = TRUE, show.legend = FALSE) +
+  geom_polygon(data = south_africa_coast, aes(x = lon, y = lat, group = group), 
+               size = 0.5, colour = "black", fill = "white") +
+   # geom_text(data = west, aes(x = lon, y = lat, label = site),
+   #          size = 1.8, colour = "black") +
+  # geom_polygon(data = wcBox, aes(x = lon, y = lat, group = group), alpha = 0.20, 
+  #              colour = "bisque1", fill = "bisque1") +
+  geom_point(data = west, aes(x = lon, y = lat), alpha = 0.8, size = 1.6) +
+  geom_text(data = west, aes(x = lon, y = lat, label = site), 
+                     size = 6, box.padding = 2, nudge_x = -0.5, nudge_y = 0.2, 
+                     segment.alpha = 0.4, force = 0.1) +
+  geom_point(data = site_pixels, aes(x = lon, y = lat), colour = "black", shape = 0, alpha = 0.8, size = 2.1) +
+  scale_alpha_continuous(breaks = c(-200, -1000, -2000, -3000, -4000, -5000),
+                         guide_legend(title = "depth (m)")) +
+  scale_fill_gradient(low = "dodgerblue4", high = "dodgerblue", na.value = "steelblue4", 
+                      breaks = c(-1000, -2000, -3000, -4000, -5000),
+                      guide_legend(title = "depth (m)")) +
+   annotate("text", label = "INDIAN\nOCEAN", x = 34.00, y = -35.0,
+             size = 6.0, angle = 0, colour = "black") +
+    annotate("text", label = "ATLANTIC\nOCEAN", x = 14.00, y = -35.0,
+             size = 6.0, angle = 0, colour = "black") +
+    annotate("text", label = "Benguela", x = 15.0, y = -31.7,
+             size = 4.0, angle = 302, colour = "black") +
+    annotate("text", label = "Agulhas", x = 32.0, y = -31.7,
+             size = 4.0, angle = 50, colour = "black") +
+  labs(title = NULL, x = NULL, y = NULL) +
+  theme(legend.key = element_rect(colour = NA, size = 0.2),
+        legend.key.height = unit(0.4, "cm"),
+        legend.background = element_blank()) +
+  coord_cartesian(xlim = sa_lons, ylim = sa_lats) 
+plot1
+```
+
+# Upwelling correlated with wind patterns
+## Loading in the Wind data
+
+```{r}
+wind_1 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings="") 
+colnames(wind_1) <- c("station_number", "station_name", "date", "hour", "sub", "speed", "dir") 
+
+wind_2 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind2/wind2.txt", na.strings="")
+colnames(wind_2) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
+
+wind_3 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind3/wind3.txt", na.strings="")
+colnames(wind_3) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
+
+# Slecting the important columns for each of the datasets
+wind_fix <- function(df){
+wind <- df%>% 
+  select(station_name, date, hour, dir, speed)
+}
+wind_1 <- wind_fix(df = wind_1)
+wind_2 <- wind_fix(df = wind_2)
+wind_3 <- wind_fix(df = wind_3)
+
+## Renaming the sites within the wind datasets to match the name of the sites at which seawater temperature was collected
+## The wind data was obtained from the SAWS and the wind stations used were the closes stations to which temperature was collected
+
+renaming_sites_1 <- function(df) {
+  sites <- df %>%
+    mutate(temp_sites = ifelse(station_name %in% c("CAPE COLUMBINE"), "St Helena Bay",        
+                           ifelse(station_name %in% c("KOINGNAAS"), "Hondeklipbaai",
+                                ifelse(station_name %in% c("PORT NOLLOTH"), "Port Nolloth",
+                                       ifelse(station_name %in% c("LAMBERTSBAAI NORTIER"), "Lamberts Bay",
+                                              ifelse(station_name %in% c("LANGEBAANWEG AWS"), "Saldanha Bay
+","Error"))))))
+  return(sites)
+}
+
+wind_sitesmatched_1 <-  renaming_sites_1(df = wind_1)
+wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ] 
+
+renaming_sites_2 <- function(df) {
+  sites <- df %>%
+    mutate(temp_sites = ifelse(station_name %in% c("ROBBENEILAND"), "Koeberg Basin",        
+                           ifelse(station_name %in% c("GEELBEK"), "Yzerfontein",
+                                ifelse(station_name %in% c("DASSEN ISLAND"), "Dassen Island",
+                                       ifelse(station_name %in% c("ATLANTIS"), "Koeberg Basin","Error")))))
+  return(sites)
+}
+
+wind_sitesmatched_2 <-  renaming_sites_2(df = wind_2)
+wind_sitesmatched_2 <- wind_sitesmatched_2[-c(228372, 228373, 313441, 313442, 364881, 364882, 557392), ] 
+
+renaming_sites_3 <- function(df) {
+  sites <- df %>%
+    mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Kommetjie",  
+                           ifelse(station_name %in% c("CAPE TOWN - ROYAL YACHT CLUB"), "Sea Point",
+                           ifelse(station_name %in% c("CAPE TOWN TABLE BAY"), "Sea Point","Error"))))
+  return(sites)
+}
+
+wind_sitesmatched_3 <-  renaming_sites_3(df = wind_3)
+wind_sitesmatched_3 <- wind_sitesmatched_3[-c(119317, 119318, 196551, 196552, 346759), ] 
+
+## CAPE TOWN SLANGKOP may be used for Kommetjie and for Houtbay
+wind_3_HoutBay <- wind_3 %>% 
+  filter(station_name == "CAPE TOWN SLANGKOP") %>% 
+  mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Hout Bay","Error"))
+
+wind_data <- rbind(wind_3_HoutBay,wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
+wind_data <- wind_data %>% 
+  na.omit()
+# save(wind_data, file = "Data_P1/wind_data.RData")
+
+# The wind data 
+
+wind_data <- wind_data %>% 
+  as.numeric(dir)
+
+wind_data <- wind_data %>%
+  mutate(date = as.Date(date)) %>%
+  group_by(temp_sites, date) %>%
+  summarise(mean_dir = mean(as.numeric(dir),
+            mean_speed = mean(as.numeric(speed))))
+
+save(wind_data, file = "Data/wind_daily.RData")
+
+# load("Data/wind_daily.RData") # Loading the daily wind data for each of the sites
 ```
 
 
@@ -370,7 +623,18 @@ ldply(PN_wave, plot_fun)
 
 
 
+## Upwelling indeces
 
+```{r}
+
+```
+
+In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that
+those differences are due to changes in upwelling intensity.
+
+- Detemining the upwelling indeces in R
+- How does upwelling indeces vary at the different distances along the coast
+- Positive indeces display a positive upwelling. 
 
 
 
