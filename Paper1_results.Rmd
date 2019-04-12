@@ -41,6 +41,7 @@ library(PBSmapping)
 library(scales)
 library(grid)
 library(gridExtra)
+library(circular)
 library(fossil)
 library(mapproj)
 library(rgeos)
@@ -181,7 +182,7 @@ G1SST_plot <- match_plot(df = insitu_G1SST )
 G1SST_temp_plot <- temp_plot(df = insitu_G1SST)
 ```
 
-# K10
+## K10 dataset
 
 ```{r}
 Lamberts_Bay <- read_csv("Data/K10/K10_Lamberts Bay_SST_timeseries_5nearest.csv")
@@ -600,28 +601,28 @@ wind_3_HoutBay <- wind_3 %>%
 wind_data <- rbind(wind_3_HoutBay,wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
 wind_data <- wind_data %>% 
   na.omit()
-# save(wind_data, file = "Data_P1/wind_data.RData")
-
-# The wind data 
 
 wind_data <- wind_data %>% 
-  as.numeric(dir)
+  group_by(date,hour,temp_sites) %>% 
+  mutate(date = as.Date(date)) 
+# write.csv(wind_data, file = "Data_P1/wind_data.csv", row.names = T)
+# save(wind_data, file = "Data_P1/wind_data.RData")
 
-wind_data <- wind_data %>%
-  mutate(date = as.Date(date)) %>%
-  group_by(temp_sites, date) %>%
-  summarise(mean_dir = mean(as.numeric(dir),
-            mean_speed = mean(as.numeric(speed))))
+# LOading the wind data
+library(tidyverse)
+library(circular)
+wind_data <- read_csv("wind_data.csv", col_types = cols(X1 = col_number(), date = col_character(), dir = col_number(), hour = col_number(),  speed = col_number()))
 
-save(wind_data, file = "Data/wind_daily.RData")
+wind_daily <- wind_data %>% 
+  mutate(date = as.Date(date))%>%
+   group_by(temp_sites, date) %>%
+   summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
+             mean_speed = round(mean(speed),2))
+save(wind_daily, file = "data/wind_daily.RData")
 
-# load("Data/wind_daily.RData") # Loading the daily wind data for each of the sites
+# Loading in the daily wind data
+load("Data_P1/wind_daily.RData")
 ```
-
-
-
-
-
 
 ## Upwelling indeces
 
