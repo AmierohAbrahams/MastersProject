@@ -625,13 +625,14 @@ wind_data <- wind_data %>%
 # LOading the wind data
 library(tidyverse)
 library(circular)
-wind_data <- read_csv("wind_data.csv", col_types = cols(X1 = col_number(), date = col_character(), dir = col_number(), hour = col_number(),  speed = col_number()))
 
-wind_daily <- wind_data %>% 
-  mutate(date = as.Date(date))%>%
-   group_by(temp_sites, date) %>%
-   summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
-             mean_speed = round(mean(speed),2))
+# wind_data <- read_csv("wind_data.csv", col_types = cols(X1 = col_number(), date = col_character(), dir = col_number(), hour = col_number(),  speed = col_number())) # Dataset too large for Github but better data at line 638
+# 
+# wind_daily <- wind_data %>% 
+#   mutate(date = as.Date(date))%>%
+#    group_by(temp_sites, date) %>%
+#    summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
+#              mean_speed = round(mean(speed),2))
 
 # save(wind_daily, file = "Data_P1/wind_daily.RData")
 # Loading in the daily wind data
