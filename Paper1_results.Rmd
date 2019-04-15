@@ -8,7 +8,6 @@ output: html_document
 This scripts comprise of the analyses needed for the first section of my masters project. 
 
 # Loading libraries
-
 First I need to find, install and load various packages. These packages will be available on CRAN and can be accessed and installed in the usual way.
  
 ```{r prelim_opts, echo=FALSE}
@@ -45,9 +44,16 @@ library(circular)
 library(fossil)
 library(mapproj)
 library(rgeos)
+library(ncdf4)
+library(reshape2)
+library(plyr) # Never load plyr when also loading the tidyverse. It causes a lot of conflicts.
+library(stringr)
+library(doMC); doMC::registerDoMC(cores = 4)
+library(fasttime)
 
 ## Functions
 source("functions/earthdist.R")
+source("functions/wind.rose.R")
 ```
 
 ## Load site list SACTN data
@@ -61,14 +67,14 @@ load("Data_P1/SACTN_daily_v4.2.RData")
 
 ## Selecting the sites and creating new *in situ* datasets
 
-Now we select only the sites occuring along the west coast. The purpose of this research task is to assess whether or not the intensity of upwelling varies at va range of distances from the coastline. The data used here is obtained from different satellites and thus possess different resolutions. Here I attempt to find an overlapping time series for all of the sites along the west coast. The sites here vary between upwelling centres and further away from the upwelling centre
+Now we select only the sites occuring along the west coast. The purpose of this is to assess whether or not the intensity of upwelling varies at a range of distances from the coastline. The data used here is obtained from different satellites and thus represent different resolutions. I then find an overlapping time series for each of the sites along the west coast. The length of time series for each of the sites is greater than 10 years. The sites along the west coast vary between upwelling centres and further away from the upwelling centres. As a result it is hypothesised that sites located within the upwelling centre may resemble a longer more intense upwelling event when compared to sites located further away from the upwelling centre. For this analyses a long term time series of 30years is not required and so our time series starts in 1992 - 2015.
 
 ```{r}
 site_list_sub <- site_list %>%
   filter(coast == "wc") %>%
   filter(length > 3650) 
 site_list_sub <- site_list_sub[c(-2, -3, -5, -6, -7,-9, -12, -13, -14),] # Here I keep all the sites with temperature obtained up to 2017
-save(site_list_sub, file = "Data_P1/site_list_sub.Rdata")
+# save(site_list_sub, file = "Data_P1/site_list_sub.Rdata")
 
 SACTN_US <- SACTN_daily_v4.2 %>%
   left_join(site_list[,c(4,13)], by = "index") %>%
@@ -94,7 +100,8 @@ temp_plot <- function(df){
 SACTN_plot <- temp_plot(df = SACTN_overlap)
 ```
 
-In this thesis, different remotely-sensed SST datasets are used. Hence, these datasets represent different resolutions at which data was obtained. 
+# Remotely sensed SST datasets
+Matching the satellite sea surface temperature data point to the in situ temperature collected data points.
 
 ## MUR dataset
 
@@ -151,6 +158,7 @@ temp_plot <- function(df){
 insitu_MUR <- match_func(df = MUR_SST) %>%
   drop_na()
 # save(insitu_MUR, file = "Data_P1/insitu_MUR.RData")
+
 MUR_plot <- match_plot(df = insitu_MUR)
 MUR_plot <- temp_plot(df = insitu_MUR)
 ```
@@ -178,6 +186,7 @@ G1SSTsub_SST <- G1SSTsub_SST %>%
 ## Matching the Insitu data with the G1SST SST data
 insitu_G1SST <- match_func(df = G1SSTsub_SST) 
 # save(insitu_G1SST, file = "Data_P1/insitu_G1SST.RData")
+
 G1SST_plot <- match_plot(df = insitu_G1SST )
 G1SST_temp_plot <- temp_plot(df = insitu_G1SST)
 ```
@@ -205,6 +214,7 @@ K10_SST <- K10_SST %>%
 ## Matching the Insitu data with the K10 SST data
 insitu_K10 <- match_func(df = K10_SST) 
 # save(insitu_K10, file = "Data_P1/insitu_K10.RData")
+
 K10_plot <- match_plot(df = insitu_K10)
 k10_temp_plot <- temp_plot(df = insitu_K10)
 ```
@@ -226,8 +236,7 @@ OISST %>%
   geom_raster(aes(fill = temp))
 ```
 
-## Here I find the nearest SST pixels
-
+## The nearest SST pixels
 Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SST pixel to the insitu collected sites. 
 
 ```{r}
@@ -266,23 +275,12 @@ OISST_sites <- OISST_sites %>%
 ## Matching the Insitu data with the OISST SST data
 insitu_OISST <- match_func(df = OISST_sites)
 # save(insitu_OISST, file = "Data_P1/insitu_OISST.RData")
+
 OISST_plot <- match_plot(df = insitu_OISST)
 OISST_temp_plot <- temp_plot(df = insitu_OISST)
 ```
 
-## Wavelets
-
-Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2014 and 2015. Thereafter, wavelet analyses ae created per season for each individual site along the west coast of South Africa. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
-
-### Load site list SACTN data
-Now to get to the data. The first step involves the loading of the site list. The statistical properties of the seawater temperature representing the South African coastline, such as the mean, minimum and maximum temperatures. These values vary among coastal sections due to the influence of the cold Benguala and warm Agulhas currents. Here we will only focus on the temperature data found along the west coast (wc) (i.e. sites influenced by the Benguela current, EBUS).
-
-```{r}
-load("Data_P1/site_list_v4.2.RData")
-load("Data_P1/SACTN_daily_v4.2.RData")
-```
-
-## Load in the rest of the datasets
+Loading in the matched satellite temperature data
 
 ```{r}
 load("Data_P1/SACTN_overlap.RData")
@@ -292,9 +290,22 @@ load("Data_P1/insitu_G1SST.RData")
 load("Data_P1/insitu_K10.RData")
 ```
 
-# Time series of one year
+## Wavelets
+Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2010 - 2014. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
 
-Examining the intensity and duration of upwelling for the years 2014 - 2015
+## Load in the datasets
+
+```{r}
+load("Data_P1/SACTN_overlap.RData")
+load("Data_P1/insitu_MUR.RData")
+load("Data_P1/insitu_OISST.RData")
+load("Data_P1/insitu_G1SST.RData")
+load("Data_P1/insitu_K10.RData")
+```
+
+# Time series
+
+Creating a time series from the year 2010 to 2014 for both the satellite and in situ collected SST data. This is done to provide an accurate comparison between datasets given that the different datasets have different starting and ending dates for which temperature was collected. E.g. Temperature for the MUR  only started in 2002
 
 ```{r}
 filtered_years <- function(df){
@@ -375,10 +386,11 @@ plot_fun <- function(x, plot_name = attributes(x)$ref) {
 ldply(PN_wave, plot_fun) 
 ```
 
-############################################################################################################################################
+#########################################################################################################################
 
 # Calculating a shore transect
-The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km). Then create wavelet analyses (or another analyses) where I compare how the intensity and duration of upwelling vary at different distances from the coastline. So would I have a dataset with temperature at 15km then at 25km then at 35km and then at 50km and so on...?
+
+The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km). Then create wavelet analyses (or another analyses) where I compare how the intensity and duration of upwelling vary at different distances from the coastline. So would I have a dataset with temperature at 15km then at 25km then at 50km and so on...?
 
 ```{r}
 load("Data_P1/site_list_sub.Rdata")
@@ -435,7 +447,7 @@ load("Data_P1/site_transects.RData")
 transect.pixel.isobath <- function(site, distance = 25000, isobath = 999){ # Only at a distance of 25000km
   # Extract coordinates
   coords <- data.frame(lon = site$lon, lat = site$lat)
-  # Find lon/ lats every X metres until the chosen isobath is reached
+  # Find lon/ lats every X metres 
   pixels <- data.frame()
   deep <- 999
   while(deep > isobath){
@@ -450,7 +462,7 @@ transect.pixel.isobath <- function(site, distance = 25000, isobath = 999){ # Onl
     coords <- coords2
     deep <- bathy2$depth
   }
-  pixels2 <- pixels[pixels$depth > -999,] # This may remove the only row of data
+  pixels2 <- pixels[pixels$depth > -999,] 
   if(nrow(pixels2) < 1){
     pixels2 <- data.frame(site, depth = NA)
   }else{
@@ -531,9 +543,10 @@ plot1 <- ggplot() +
 plot1
 ```
 
-# Upwelling correlated with wind patterns
-## Loading in the Wind data
+# Wind data
 
+Loading the Wind data. The wind dataset was supplied by the SAWS in .text format. Wind data was provided for the sites closes to the requested site as wind data may not be available for the 6 study sites in this research.  The wind direction was collected every 2 hours and by using the circular function we calcuated the daily wind direction and mean speed. There is a numerically large gap between 360 and 2 where as in degrees its not as large. The circular mean function returns the mean direction of a vector of circular data. https://cran.r-project.org/web/packages/circular/circular.pdf (Pg 130). The circular function creates circular objects around the wind direction. 
+  
 ```{r}
 wind_1 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings="") 
 colnames(wind_1) <- c("station_number", "station_name", "date", "hour", "sub", "speed", "dir") 
@@ -547,7 +560,7 @@ colnames(wind_3) <- c("station_number", "station_name", "date", "hour", "sub" ,"
 # Slecting the important columns for each of the datasets
 wind_fix <- function(df){
 wind <- df%>% 
-  select(station_name, date, hour, dir, speed)
+  select(station_name, date, hour, dir, speed) #column names
 }
 wind_1 <- wind_fix(df = wind_1)
 wind_2 <- wind_fix(df = wind_2)
@@ -605,6 +618,7 @@ wind_data <- wind_data %>%
 wind_data <- wind_data %>% 
   group_by(date,hour,temp_sites) %>% 
   mutate(date = as.Date(date)) 
+
 # write.csv(wind_data, file = "Data_P1/wind_data.csv", row.names = T)
 # save(wind_data, file = "Data_P1/wind_data.RData")
 
@@ -618,10 +632,181 @@ wind_daily <- wind_data %>%
    group_by(temp_sites, date) %>%
    summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
              mean_speed = round(mean(speed),2))
-save(wind_daily, file = "data/wind_daily.RData")
 
+# save(wind_daily, file = "Data_P1/wind_daily.RData")
 # Loading in the daily wind data
 load("Data_P1/wind_daily.RData")
+
+# Subsetting to particular sites 
+selected_sites <- c("Port Nolloth", "Lamberts Bay", "Sea Point", "Saldanha Bay", "Yzerfontein", "Kommetjie") 
+
+wind_daily_sub <- wind_daily %>% 
+  dplyr::rename(site = temp_sites) %>% 
+  filter(site %in% selected_sites) # ***Does not detect Saldanha Bay???****
+
+# save(wind_daily_sub, file = "Data_P1/wind_daily_sub.RData")
+# Loading in the daily wind data
+# load("Data_P1/wind_daily_sub.RData")
+```
+ 
+Matching wind data to the in situ collected data. This is done in order to plot the wind patterns for the same date at which temperature was collected. The satellite obtained SST data is also matched by date to the in situ temperature data and so the dates correspond. 
+
+```{r}
+insitu_wind <- match_func(df = wind_daily_sub) %>%
+  drop_na()
+insitu_wind <- insitu_wind %>% 
+  filter(year(date) %in% seq(2010, 2014)) # The years 2010-2014 is the years of interest and the years for which wavelets are/will be created.
+  
+# save(insitu_wind, file = "Data_P1/insitu_wind.RData")
+# Loading in the daily wind data
+# load("Data_P1/insitu_wind.RData")
+```
+
+# Plotting the wind data - Waverose diagrams
+
+```{r}
+wave_daily_renamed <- insitu_wind %>% 
+  dplyr::rename(spd = mean_speed) %>%
+  dplyr::rename(dir = dir_circ) 
+
+p.wr2 <- plot.windrose(data = wave_daily_renamed,
+              spd = "spd",
+              dir = "dir")
+p.wr3 <- p.wr2 + facet_wrap(.~ site, ncol = 2, nrow = "") +
+  theme(strip.text.x = element_text(size = 25))
+p.wr3
+```
+
+## Chlorophyll-a data
+
+Extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla data were obtained from MODIS Aqua. The aim of working with these chlorophyll a data is to examine how the chlorophyll a concentration varies with upwelling. This function convert chlorophyll netCDF datasets to a single CSV dataset.
+
+```{r}
+# MODIS_chlor.dir <- "/home/amieroh/Documents/Data/Datasets/Chlorophyll_a"
+# MODIS_chlor.csv.dir <- "/home/amieroh/Documents/Data/Datasets"
+
+region <- "BC" # Benguela Current
+coords <- bbox[, region]
+coords <- c(-35, -20, 10, 20) # this is the BC
+
+ncList <- list.files(path = MODIS_chlor.dir, pattern = "*.nc", full.names = TRUE, include.dirs = TRUE)
+strt.date <- str_sub(basename(ncList[1]), start = 2, end = 8)
+end.date <- str_sub(basename(ncList[length(ncList)]), start = 2, end = 8)
+nc.init <- nc_open(ncList[1])
+LatIdx <- which(nc.init$dim$lat$vals > coords[1] & nc.init$dim$lat$vals < coords[2])
+LonIdx <- which(nc.init$dim$lon$vals > coords[3] & nc.init$dim$lon$vals < coords[4])
+nc_close(nc.init)
+
+
+ncFun <- function(nc.file = nc.files, csv.dir = csv.dir) {
+nc <- nc_open(nc.file)
+  instrument <- ncatt_get(nc, 0, "instrument")$value
+  platform <- ncatt_get(nc, 0, "platform")$value
+  product_name <- ncatt_get(nc, 0, "product_name")$value
+  fNameStem <- substr(product_name, 17, 38)
+  timeStamp <- substr(product_name, 2, 8)
+  origin <- paste0(substr(timeStamp, 1, 4), "-01-01")
+  date <- as.Date(as.numeric(substr(timeStamp, 5, 7)), origin)
+  chl <- round(ncvar_get(nc,
+                   varid = "chlor_a",
+                   start = c(LonIdx[1], LatIdx[1]),
+                   count = c(length(LonIdx), length(LatIdx))),
+               3)
+  dimnames(chl) <- list(lon = nc$dim$lon$vals[LonIdx],
+                        lat =  nc$dim$lat$vals[LatIdx])
+  nc_close(nc)
+  chl <-
+    as.data.table(melt(chl, value.name = "chl"), row.names = NULL) %>%
+    mutate(t = date) %>%
+    na.omit()
+  fwrite(chl,
+         file = paste(csv.dir, "/", region, "-", instrument, ".",platform, ".",
+                      fNameStem, "-", strt.date, "-", end.date, ".csv", sep = ""),
+         append = TRUE, col.names = FALSE)
+  rm(chl)
+}
+
+llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
+
+# MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
+# MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
+#             col.names = c("lon", "lat", "chloro", "date"))
+
+# save(MODIS_Chloro, file = "Data/MODIS_Chloro.RData")
+```
+
+## Setting up the chlorophylla dataset
+
+```{r}
+
+# Loading the data
+load("Data_P1/MODIS_Chloro.RData") # Extracted chlorophyll data
+load("Data_P1/site_list_sub.Rdata") # Site list of all the sites along the west coast
+
+# Visualisation
+chloro_plot <- MODIS_Chloro %>%
+  filter(date == min(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = chloro))
+
+unique_pixel <- MODIS_Chloro %>% 
+  select(lon, lat) %>% 
+  unique()
+
+match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+                          query = as.matrix(site_list_sub[,5:6]), k = 1)
+
+# Matching the chlorophylla-a lats and lons to the study sites
+pixel_match <- unique_pixel[match_index,] %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  mutate(site = site_list_sub$site)
+
+chloro_match <- MODIS_Chloro %>%
+  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+  filter(combi %in% pixel_match$combi)
+
+chloro_match %>%
+  filter(date == max(date)) %>%
+  ggplot(aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = chloro))
+
+chloro_sites <- chloro_match %>%
+  left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
+  dplyr::mutate(date = as.Date(date))
+# save(chloro_sites, file = "Data_P1/chloro_sites.RData")
+
+# Visualisation
+Chloro_plot_complete <- ggplot(chloro_sites, aes(x = date, y = chloro)) +
+  geom_line() +
+  facet_wrap(~site, ncol = 1)
+Chloro_plot_complete
+
+# Study period from 2010 - 2014
+chloro_data <- chloro_sites %>% 
+  filter(year(date) %in% seq(2010, 2014))
+# save(chloro_data, file = "Data_P1/chloro_data.RData")
+
+# Plotting only years 2014-2015
+Chloro_plot_filtered <- ggplot(chloro_data, aes(x = date, y = chloro)) +
+  geom_line() +
+  facet_wrap(~site, ncol = 1)
+Chloro_plot_filtered
+
+# Creating daily temperatures
+load("Data_P1/chloro_data.RData") # Loading in the chlorophyll-a data
+
+daily_chloro_data <- chloro_data %>%
+  dplyr::mutate(date = as.Date(date)) %>%
+  dplyr::group_by(combi, lon, lat, date) %>%
+  dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>%
+  dplyr::group_by(combi, lon, lat, date) %>%
+  tidyr::nest() %>%
+  dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
+                     climatologyPeriod = c("2002-07-13", "2018-12-04"),
+                     maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
+  dplyr::select(-data) %>%
+  tidyr::unnest() %>%
+  select(-doy, -seas, -thresh)
 ```
 
 ## Upwelling indeces
@@ -638,5 +823,9 @@ those differences are due to changes in upwelling intensity.
 - Positive indeces display a positive upwelling. 
 
 
+Things to do
 
-
+- Plot seasonal detrend
+- chlorophyll a data
+- fix windrose plot
+- Stastical analyses
