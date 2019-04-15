@@ -740,7 +740,7 @@ llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
 ```{r}
 
 # Loading the data
-load("Data_P1/MODIS_Chloro.RData") # Extracted chlorophyll data
+load("Data_P1/MODIS_Chloro.RData") # Extracted/Raw chlorophyll data
 load("Data_P1/site_list_sub.Rdata") # Site list of all the sites along the west coast
 
 # Visualisation
@@ -809,7 +809,7 @@ daily_chloro_data <- chloro_data %>%
   select(-doy, -seas, -thresh)
 ```
 
-## Upwelling indeces
+## EOF's
 
 ```{r}
 
