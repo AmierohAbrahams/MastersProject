@@ -14,7 +14,7 @@ First I need to find, install and load various packages. These packages will be 
 knitr::opts_chunk$set(
   comment = "R>",
   warning = FALSE,
-  message = FALSE
+  message = FALSE 
 )
 
 library(tidyverse)
@@ -45,11 +45,16 @@ library(fossil)
 library(mapproj)
 library(rgeos)
 library(ncdf4)
+# library(sinkr)
+library(spacetime)
 library(reshape2)
 library(plyr) # Never load plyr when also loading the tidyverse. It causes a lot of conflicts.
 library(stringr)
 library(doMC); doMC::registerDoMC(cores = 4)
 library(fasttime)
+
+# library(devtools)
+# install_github("marchtaylor/sinkr")
 
 ## Functions
 source("functions/earthdist.R")
