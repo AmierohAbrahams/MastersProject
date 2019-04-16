@@ -241,7 +241,7 @@ Now we apply the FNN (Fast Nearest Neighbor) package to determine the nearesr SS
 
 ```{r}
 
-load("Data_P1/site_list_sub.RData") # Loading the SACTN_overlap dataset which allows me to match it to the OISST data 
+load("Data_P1/site_list_sub.Rdata") # Loading the SACTN_overlap dataset which allows me to match it to the OISST data 
 
 unique_pixel <- OISST %>%
   select(lon, lat) %>%
@@ -368,7 +368,7 @@ wl.fun <- function(x) {
                    method = "white.noise", verbose = FALSE)
 }
 
-PN_wave <- dlply(PN_prewhite, .(site), wl.fun)
+PN_wave <- dlply(PN_prewhite, .(site), wl.fun, .parallel = T) # RWS: Allow parallel processing
 
 for (i in 1:length(PN_wave)) {
   attributes(PN_wave[[i]]) <- c(attributes(PN_wave[[i]]), ref = names(PN_wave)[i])
@@ -383,7 +383,7 @@ plot_fun <- function(x, plot_name = attributes(x)$ref) {
            main = plot_name)
   dev.off()
 }
-ldply(PN_wave, plot_fun) 
+ldply(PN_wave, plot_fun, .parallel = T) # RWS: Allow parallel processing
 ```
 
 #########################################################################################################################
@@ -444,42 +444,48 @@ load("Data_P1/site_transects.RData")
 # This function takes one site (e.g. one set of lon/lats) and calculates a shore normal transect
 # It then extracts a lat/ lon point every X kilometres until reaching a specified isobath
 
-transect.pixel.isobath <- function(site, distance = 25000, isobath = 999){ # Only at a distance of 25000km
+transect.pixel <- function(site, distances){
   # Extract coordinates
   coords <- data.frame(lon = site$lon, lat = site$lat)
   # Find lon/ lats every X metres 
   pixels <- data.frame()
-  deep <- 999
-  while(deep > isobath){
+  # deep <- 999
+  # distance_multiplier <- 1
+  # while(deep > isobath){
+  for(i in 1:length(distances)){
+    # Add index to show distance from coast
     # Find depth at distance step
-    coords2 <- as.data.frame(destPoint(p = coords, b = site$heading, d = distance))
+    coords2 <- as.data.frame(destPoint(p = coords, b = site$heading, d = distances[i]))
     sitesIdx <- knnx.index(sa_bathy[,1:2], as.matrix(coords2), k = 1)
     bathy2 <- sa_bathy[sitesIdx,]
     bathy2 <- bathy2[complete.cases(bathy2$depth),]
     bathy3 <- data.frame(site = site$site, lon = bathy2$lon, lat = bathy2$lat, 
-                         heading = site$heading, depth = bathy2$depth)
+                         heading = site$heading, 
+                         # depth = bathy2$depth,
+                         distance = distances[i])
     pixels <- rbind(pixels, bathy3)
     coords <- coords2
-    deep <- bathy2$depth
+    # distance_multiplier <- distance_multiplier +1 
+    # deep <- bathy2$depth
   }
-  pixels2 <- pixels[pixels$depth > -999,] 
-  if(nrow(pixels2) < 1){
-    pixels2 <- data.frame(site, depth = NA)
+  # pixels2 <- pixels[pixels$depth > -999,] 
+  if(nrow(pixels) < 1){
+    pixels <- data.frame(site, depth = NA)
   }else{
-    pixels2 <- pixels2
+    pixels <- pixels
   }
-  return(pixels2)
+  return(pixels)
 }
 
 # Pixel points
 site_pixels <- data.frame()
 for(i in 1:length(west$site)){
   site <- site_transects[i,]
-  site_pixel <- transect.pixel.isobath(site, 25000, -900)
+  site_pixel <- transect.pixel(site, c(15000, 25000, 35000, 45000, 55000)) # RWS: The desired distances
   site_pixels <- rbind(site_pixels, site_pixel)
 }
 
-save(site_pixels, file = "Data_P1/site_pixels.RData")
+# save(site_pixels, file = "Data_P1/site_pixels.RData")
 load("Data_P1/site_pixels.RData")
 
 # Bounding box
@@ -548,20 +554,25 @@ plot1
 Loading the Wind data. The wind dataset was supplied by the SAWS in .text format. Wind data was provided for the sites closes to the requested site as wind data may not be available for the 6 study sites in this research.  The wind direction was collected every 2 hours and by using the circular function we calcuated the daily wind direction and mean speed. There is a numerically large gap between 360 and 2 where as in degrees its not as large. The circular mean function returns the mean direction of a vector of circular data. https://cran.r-project.org/web/packages/circular/circular.pdf (Pg 130). The circular function creates circular objects around the wind direction. 
   
 ```{r}
-wind_1 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings="") 
-colnames(wind_1) <- c("station_number", "station_name", "date", "hour", "sub", "speed", "dir") 
+wind_1 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings = "", 
+                     col.names = c("station_number", "station_name", "date", "hour", "sub", "speed", "dir"))
 
-wind_2 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind2/wind2.txt", na.strings="")
-colnames(wind_2) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
+wind_2 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind2/wind2.txt", na.strings = "",
+                     col.names = c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir"))
 
-wind_3 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind3/wind3.txt", na.strings="")
-colnames(wind_3) <- c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir")
+wind_3 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind3/wind3.txt", na.strings = "",
+                     col.names = c("station_number", "station_name", "date", "hour", "sub" ,"speed", "dir"))
 
 # Slecting the important columns for each of the datasets
 wind_fix <- function(df){
-wind <- df%>% 
-  select(station_name, date, hour, dir, speed) #column names
+wind <- df %>% 
+  select(station_name, date, hour, dir, speed) %>%  #column names
+  mutate(date = as.Date(as.character(date)),
+         hour = as.numeric(as.character(hour)), 
+         dir = as.numeric(as.character(dir)),
+         speed = as.numeric(as.character(speed)))
 }
+# RWS: We can see when we force the values to be numeric that there are some non-numeric values in the base data
 wind_1 <- wind_fix(df = wind_1)
 wind_2 <- wind_fix(df = wind_2)
 wind_3 <- wind_fix(df = wind_3)
@@ -571,17 +582,21 @@ wind_3 <- wind_fix(df = wind_3)
 
 renaming_sites_1 <- function(df) {
   sites <- df %>%
-    mutate(temp_sites = ifelse(station_name %in% c("CAPE COLUMBINE"), "St Helena Bay",        
-                           ifelse(station_name %in% c("KOINGNAAS"), "Hondeklipbaai",
-                                ifelse(station_name %in% c("PORT NOLLOTH"), "Port Nolloth",
-                                       ifelse(station_name %in% c("LAMBERTSBAAI NORTIER"), "Lamberts Bay",
-                                              ifelse(station_name %in% c("LANGEBAANWEG AWS"), "Saldanha Bay
-","Error"))))))
+      # RWS: An alternative way to replace values without having to use multiple ifelse() statements
+      mutate(temp_sites = case_when(station_name == "CAPE COLUMBINE" ~ "St Helena Bay",
+                                    station_name  == "KOINGNAAS" ~ "Hondeklipbaai",
+                                    station_name  == "PORT NOLLOTH" ~"Port Nolloth",
+                                    station_name  == "LAMBERTSBAAI NORTIER" ~ "Lamberts Bay",
+                                    station_name  == "LANGEBAANWEG AWS" ~ "Saldanha Bay"))
   return(sites)
 }
 
+
+
 wind_sitesmatched_1 <-  renaming_sites_1(df = wind_1)
-wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ] 
+# RWS: You should never be removing values by specific call like this
+  # Rather you should be able to use some sort of conditional to screen out unwanted values
+wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ]
 
 renaming_sites_2 <- function(df) {
   sites <- df %>%
@@ -616,23 +631,26 @@ wind_data <- wind_data %>%
   na.omit()
 
 wind_data <- wind_data %>% 
-  group_by(date,hour,temp_sites) %>% 
-  mutate(date = as.Date(date)) 
+  # mutate(date = as.Date(date)) %>%  
+  group_by(date, hour, temp_sites) 
 
 # write.csv(wind_data, file = "Data_P1/wind_data.csv", row.names = T)
 # save(wind_data, file = "Data_P1/wind_data.RData")
 
-# LOading the wind data
+# Loading the wind data
 library(tidyverse)
 library(circular)
 
 # wind_data <- read_csv("wind_data.csv", col_types = cols(X1 = col_number(), date = col_character(), dir = col_number(), hour = col_number(),  speed = col_number())) # Dataset too large for Github but better data at line 638
-# 
-# wind_daily <- wind_data %>% 
-#   mutate(date = as.Date(date))%>%
-#    group_by(temp_sites, date) %>%
-#    summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
-#              mean_speed = round(mean(speed),2))
+
+# wind_data <- read_csv("Data_P1/wind_data.csv")
+
+wind_daily <- wind_data %>%
+  # ungroup() %>%
+  # mutate(date = as.Date(date))%>%
+  dplyr::group_by(temp_sites, date) %>%
+  dplyr::summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
+                   mean_speed = round(mean(speed),2))
 
 # save(wind_daily, file = "Data_P1/wind_daily.RData")
 # Loading in the daily wind data
@@ -643,7 +661,7 @@ selected_sites <- c("Port Nolloth", "Lamberts Bay", "Sea Point", "Saldanha Bay",
 
 wind_daily_sub <- wind_daily %>% 
   dplyr::rename(site = temp_sites) %>% 
-  filter(site %in% selected_sites) # ***Does not detect Saldanha Bay???****
+  filter(site %in% selected_sites)
 
 # save(wind_daily_sub, file = "Data_P1/wind_daily_sub.RData")
 # Loading in the daily wind data
@@ -675,7 +693,7 @@ p.wr2 <- plot.windrose(data = wave_daily_renamed,
               dir = "dir")
 p.wr3 <- p.wr2 + facet_wrap(.~ site, ncol = 2, nrow = "") +
   theme(strip.text.x = element_text(size = 25))
-p.wr3
+p.wr3 # RWS: You'll want to remove the NA part in the figure output
 ```
 
 ## Chlorophyll-a data
@@ -687,7 +705,7 @@ Extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla d
 # MODIS_chlor.csv.dir <- "/home/amieroh/Documents/Data/Datasets"
 
 region <- "BC" # Benguela Current
-coords <- bbox[, region]
+# coords <- bbox[, region] # RWS: Where does bbox come from?
 coords <- c(-35, -20, 10, 20) # this is the BC
 
 ncList <- list.files(path = MODIS_chlor.dir, pattern = "*.nc", full.names = TRUE, include.dirs = TRUE)
@@ -797,13 +815,13 @@ Chloro_plot_filtered
 load("Data_P1/chloro_data.RData") # Loading in the chlorophyll-a data
 
 daily_chloro_data <- chloro_data %>%
-  dplyr::mutate(date = as.Date(date)) %>%
+  # dplyr::mutate(date = as.Date(date)) %>% # RWS: The values already are dates
   dplyr::group_by(combi, lon, lat, date) %>%
   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>%
-  dplyr::group_by(combi, lon, lat, date) %>%
+  dplyr::group_by(combi, lon, lat) %>% # RWS: Deleted the date grouping variable being used here
   tidyr::nest() %>%
   dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
-                     climatologyPeriod = c("2002-07-13", "2018-12-04"),
+                     climatologyPeriod = c("2010-02-11", "2014-12-20"),
                      maxPadLength = 8)) %>% # Adjust maxPadLength = X for longer interpolation
   dplyr::select(-data) %>%
   tidyr::unnest() %>%
