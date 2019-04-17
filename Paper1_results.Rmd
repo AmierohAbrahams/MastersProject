@@ -35,7 +35,7 @@ library(plyr)
 library(maptools)
 library(sp)
 library(geosphere)
-library(marmap)
+# library(marmap)
 library(PBSmapping)
 library(scales)
 library(grid)
@@ -43,7 +43,7 @@ library(gridExtra)
 library(circular)
 library(fossil)
 library(mapproj)
-library(rgeos)
+# library(rgeos)
 library(ncdf4)
 # library(sinkr)
 library(spacetime)
@@ -106,17 +106,17 @@ SACTN_plot <- temp_plot(df = SACTN_overlap)
 ```
 
 # Remotely sensed SST datasets
-Matching the satellite sea surface temperature data point to the in situ temperature collected data points.
+Matching the satellite sea surface temperature data point to the in situ temperature collected data points. The MUR data is not present within the data_P1 folder and so needs to be loaded into the data folder.
 
 ## MUR dataset
 
 ```{r}
-MUR_Lamberts_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
-MUR_Port_Nolloth <- read_csv("Data/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
-MUR_Saldanha_Bay <- read_csv("Data/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
-MUR_Yzerfontein <- read_csv("Data/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
-MUR_Kommetjie <- read_csv("Data/MUR_nearest5pixels/MUR_Kommetjie_SST_timeseries_5nearest.csv")
-MUR_Sea_Point <- read_csv("Data/MUR_nearest5pixels/MUR_Sea Point_SST_timeseries_5nearest.csv")
+MUR_Lamberts_Bay <- read_csv("Data_P1/MUR_nearest5pixels/MUR_Lamberts Bay_SST_timeseries_5nearest.csv")
+MUR_Port_Nolloth <- read_csv("Data_P1/MUR_nearest5pixels/MUR_Port Nolloth_SST_timeseries_5nearest.csv")
+MUR_Saldanha_Bay <- read_csv("Data_P1/MUR_nearest5pixels/MUR_Saldanha Bay_SST_timeseries_5nearest.csv")
+MUR_Yzerfontein <- read_csv("Data_P1/MUR_nearest5pixels/MUR_Yzerfontein_SST_timeseries_5nearest.csv")
+MUR_Kommetjie <- read_csv("Data_P1/MUR_nearest5pixels/MUR_Kommetjie_SST_timeseries_5nearest.csv")
+MUR_Sea_Point <- read_csv("Data_P1/MUR_nearest5pixels/MUR_Sea Point_SST_timeseries_5nearest.csv")
 
 MUR_SST <- rbind(MUR_Lamberts_Bay,MUR_Yzerfontein, MUR_Port_Nolloth,MUR_Saldanha_Bay, MUR_Kommetjie, MUR_Sea_Point) %>%
   dplyr::rename(site = station)
@@ -165,18 +165,18 @@ insitu_MUR <- match_func(df = MUR_SST) %>%
 # save(insitu_MUR, file = "Data_P1/insitu_MUR.RData")
 
 MUR_plot <- match_plot(df = insitu_MUR)
-MUR_plot <- temp_plot(df = insitu_MUR)
+MUR_temp <- temp_plot(df = insitu_MUR)
 ```
 
 ## G1SST dataset
 
 ```{r}
-Lamberts_Bay <- read_csv("Data/G1SST_sub/Lamberts Bay_SST_timeseries_5nearest.csv")
-Port_Nolloth <- read_csv("Data/G1SST_sub/Port Nolloth_SST_timeseries_5nearest.csv")
-Saldanha_Bay <- read_csv("Data/G1SST_sub/Saldanha Bay_SST_timeseries_5nearest.csv")
-Yzerfontein <- read_csv("Data/G1SST_sub/Yzerfontein_SST_timeseries_5nearest.csv")
-Kommetjie_SST <- read_csv("Data/G1SST_sub/Kommetjie_SST_timeseries_5nearest.csv")
-Sea_Point_SST<- read_csv("Data/G1SST_sub/Sea Point_SST_timeseries_5nearest.csv")
+Lamberts_Bay <- read_csv("Data_P1/G1SST_sub/Lamberts Bay_SST_timeseries_5nearest.csv")
+Port_Nolloth <- read_csv("Data_P1/G1SST_sub/Port Nolloth_SST_timeseries_5nearest.csv")
+Saldanha_Bay <- read_csv("Data_P1/G1SST_sub/Saldanha Bay_SST_timeseries_5nearest.csv")
+Yzerfontein <- read_csv("Data_P1/G1SST_sub/Yzerfontein_SST_timeseries_5nearest.csv")
+Kommetjie_SST <- read_csv("Data_P1/G1SST_sub/Kommetjie_SST_timeseries_5nearest.csv")
+Sea_Point_SST<- read_csv("Data_P1/G1SST_sub/Sea Point_SST_timeseries_5nearest.csv")
 
 G1SSTsub_SST <- rbind(Lamberts_Bay, Port_Nolloth, Saldanha_Bay, Yzerfontein, Kommetjie_SST, Sea_Point_SST) %>%
   dplyr::rename(site = station)
@@ -193,18 +193,18 @@ insitu_G1SST <- match_func(df = G1SSTsub_SST)
 # save(insitu_G1SST, file = "Data_P1/insitu_G1SST.RData")
 
 G1SST_plot <- match_plot(df = insitu_G1SST )
-G1SST_temp_plot <- temp_plot(df = insitu_G1SST)
+G1SST_temp<- temp_plot(df = insitu_G1SST)
 ```
 
 ## K10 dataset
 
 ```{r}
-Lamberts_Bay <- read_csv("Data/K10/K10_Lamberts Bay_SST_timeseries_5nearest.csv")
-Port_Nolloth <- read_csv("Data/K10/K10_Port Nolloth_SST_timeseries_5nearest.csv")
-Saldanha_Bay <- read_csv("Data/K10/K10_Saldanha Bay_SST_timeseries_5nearest.csv")
-Yzerfontein <- read_csv("Data/K10/K10_Yzerfontein_SST_timeseries_5nearest.csv")
-Kommetjie <- read_csv("Data/K10/K10_Kommetjie_SST_timeseries_5nearest.csv")
-Sea_Point <- read_csv("Data/K10/K10_Sea Point_SST_timeseries_5nearest.csv")
+Lamberts_Bay <- read_csv("Data_P1/K10/K10_Lamberts Bay_SST_timeseries_5nearest.csv")
+Port_Nolloth <- read_csv("Data_P1/K10/K10_Port Nolloth_SST_timeseries_5nearest.csv")
+Saldanha_Bay <- read_csv("Data_P1/K10/K10_Saldanha Bay_SST_timeseries_5nearest.csv")
+Yzerfontein <- read_csv("Data_P1/K10/K10_Yzerfontein_SST_timeseries_5nearest.csv")
+Kommetjie <- read_csv("Data_P1/K10/K10_Kommetjie_SST_timeseries_5nearest.csv")
+Sea_Point <- read_csv("Data_P1/K10/K10_Sea Point_SST_timeseries_5nearest.csv")
 
 K10_SST <- rbind(Lamberts_Bay, Yzerfontein, Port_Nolloth, Saldanha_Bay, Kommetjie, Sea_Point) %>%
   dplyr::rename(site = station)
@@ -221,7 +221,7 @@ insitu_K10 <- match_func(df = K10_SST)
 # save(insitu_K10, file = "Data_P1/insitu_K10.RData")
 
 K10_plot <- match_plot(df = insitu_K10)
-k10_temp_plot <- temp_plot(df = insitu_K10)
+k10_temp <- temp_plot(df = insitu_K10)
 ```
 
 ## OISST dataset
@@ -282,7 +282,7 @@ insitu_OISST <- match_func(df = OISST_sites)
 # save(insitu_OISST, file = "Data_P1/insitu_OISST.RData")
 
 OISST_plot <- match_plot(df = insitu_OISST)
-OISST_temp_plot <- temp_plot(df = insitu_OISST)
+OISST_temp <- temp_plot(df = insitu_OISST)
 ```
 
 Loading in the matched satellite temperature data
@@ -395,7 +395,7 @@ ldply(PN_wave, plot_fun, .parallel = T) # RWS: Allow parallel processing
 
 # Calculating a shore transect
 
-The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km). Then create wavelet analyses (or another analyses) where I compare how the intensity and duration of upwelling vary at different distances from the coastline. So would I have a dataset with temperature at 15km then at 25km then at 50km and so on...?
+The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km).
 
 ```{r}
 load("Data_P1/site_list_sub.Rdata")
@@ -443,7 +443,7 @@ for(i in 1:length(west$site)){
 
 # Manually correcting Sea Point and Kommetjie
 site_transects$heading[5:6] <- 290 
-save(site_transects, file = "Data_P1/site_transects.RData")
+# save(site_transects, file = "Data_P1/site_transects.RData")
 load("Data_P1/site_transects.RData")
 
 # This function takes one site (e.g. one set of lon/lats) and calculates a shore normal transect
@@ -486,7 +486,7 @@ transect.pixel <- function(site, distances){
 site_pixels <- data.frame()
 for(i in 1:length(west$site)){
   site <- site_transects[i,]
-  site_pixel <- transect.pixel(site, c(15000, 25000, 35000, 45000, 55000)) # RWS: The desired distances
+  site_pixel <- transect.pixel(site, c(10000, 20000, 30000, 40000, 50000)) # RWS: The desired distances
   site_pixels <- rbind(site_pixels, site_pixel)
 }
 
@@ -495,10 +495,12 @@ load("Data_P1/site_pixels.RData")
 
 # Bounding box
   # Only one is made in order to know how large the the geom_point() squares should be made to match
-test <- data.frame(xmin = destPoint(p = site_pixels[1,2:3], b = 270, d = 12500)[1],
+bbox <- data.frame(xmin = destPoint(p = site_pixels[1,2:3], b = 270, d = 12500)[1],
                    xmax = destPoint(p = site_pixels[1,2:3], b = 90, d = 12500)[1],
                    ymin = destPoint(p = site_pixels[1,2:3], b = 180, d = 12500)[2],
                    ymax = destPoint(p = site_pixels[1,2:3], b = 0, d = 12500)[2])
+
+# Determining the temperature at the various distances from the coast
 ```
 
 ## Create a visualisation of the sites at the different distances from the coastline
@@ -508,6 +510,7 @@ test <- data.frame(xmin = destPoint(p = site_pixels[1,2:3], b = 270, d = 12500)[
 
 load("Data_P1/south_africa_coast.RData")
 load("Data_P1/bathy/sa_bathy.RData")
+load("Data_P1/bathy/bathy.RData")
 names(south_africa_coast)[1] <- "lon"
 
 # Manually divide up coastline
@@ -516,42 +519,38 @@ wc <- south_africa_coast[291:410,]
 # Define plotting parameters
 sa_lats <- c(-37, -27); sa_lons <- c(14, 34)
 
-# Plotting with pixel boxes
-plot1 <- ggplot() +
- geom_contour(data = bathy[bathy$depth >= -250,], aes(x = lon, y = lat, z = depth),
-               colour = "grey20", alpha = 0.7, size = 0.2, binwidth = 200, na.rm = TRUE, show.legend = FALSE) +
-  stat_contour(data = sa_bathy[sa_bathy$depth < -250,], aes(x = lon, y = lat, z = depth, alpha = ..level..),
-               colour = "grey20", size = 0.1, binwidth = 1000, na.rm = TRUE, show.legend = FALSE) +
+
+ plot1 <- ggplot() +#coord_equal() + 
+  geom_raster(data = sa_bathy, aes(x = lon, y = lat, fill = depth)) +
+  #geom_raster(data = isobath200, aes(x = lon, y = lat, fill = coast)) +
+  stat_contour(data = sa_bathy, aes(x = lon, y = lat, z = depth, alpha = ..level..), 
+               colour = "black", size = 0.2, binwidth = 200, na.rm = TRUE, show_guide = FALSE) +
   geom_polygon(data = south_africa_coast, aes(x = lon, y = lat, group = group), 
                size = 0.5, colour = "black", fill = "white") +
-   # geom_text(data = west, aes(x = lon, y = lat, label = site),
-   #          size = 1.8, colour = "black") +
+  #geom_path(data = sa_provinces_new, aes(x = long, y = lat, group = group)) +
   # geom_polygon(data = wcBox, aes(x = lon, y = lat, group = group), alpha = 0.20, 
   #              colour = "bisque1", fill = "bisque1") +
-  geom_point(data = west, aes(x = lon, y = lat), alpha = 0.8, size = 1.6) +
-  geom_text(data = west, aes(x = lon, y = lat, label = site), 
-                     size = 6, box.padding = 2, nudge_x = -0.5, nudge_y = 0.2, 
-                     segment.alpha = 0.4, force = 0.1) +
-  geom_point(data = site_pixels, aes(x = lon, y = lat), colour = "black", shape = 0, alpha = 0.8, size = 2.1) +
+  geom_point(data = site_list_sub, aes(x = lon, y = lat), alpha = 0.8, size = 1.6) +
+  geom_point(data = site_pixels, aes(x = lon, y = lat), colour = "white", shape = 0, alpha = 0.8, size = 2.1) +
+  geom_rect(data = bbox, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
+            alpha = 0.4, colour = "red", size = 0.1, linetype = 1) +
   scale_alpha_continuous(breaks = c(-200, -1000, -2000, -3000, -4000, -5000),
                          guide_legend(title = "depth (m)")) +
   scale_fill_gradient(low = "dodgerblue4", high = "dodgerblue", na.value = "steelblue4", 
                       breaks = c(-1000, -2000, -3000, -4000, -5000),
                       guide_legend(title = "depth (m)")) +
-   annotate("text", label = "INDIAN\nOCEAN", x = 34.00, y = -35.0,
-             size = 6.0, angle = 0, colour = "black") +
-    annotate("text", label = "ATLANTIC\nOCEAN", x = 14.00, y = -35.0,
-             size = 6.0, angle = 0, colour = "black") +
-    annotate("text", label = "Benguela", x = 15.0, y = -31.7,
-             size = 4.0, angle = 302, colour = "black") +
-    annotate("text", label = "Agulhas", x = 32.0, y = -31.7,
-             size = 4.0, angle = 50, colour = "black") +
   labs(title = NULL, x = NULL, y = NULL) +
+  guides(colour = guide_legend(override.aes = list(size = 3))) +
+  #guide_legend(ncol = 2) +
   theme(legend.key = element_rect(colour = NA, size = 0.2),
         legend.key.height = unit(0.4, "cm"),
         legend.background = element_blank()) +
-  coord_cartesian(xlim = sa_lons, ylim = sa_lats) 
-plot1
+        #legend.justification = c(1,0), legend.position = c(0.5, 0.4)) +
+  coord_cartesian(xlim = sa_lons, ylim = sa_lats)
+ plot1
+ 
+ # Added in the bathy data but this is not needed for any of the analyses.
+ # This just shows the bounding boxes 
 ```
 
 # Wind data
@@ -588,8 +587,10 @@ wind_3 <- wind_fix(df = wind_3)
 renaming_sites_1 <- function(df) {
   sites <- df %>%
       # RWS: An alternative way to replace values without having to use multiple ifelse() statements
-      mutate(temp_sites = case_when(station_name == "CAPE COLUMBINE" ~ "St Helena Bay",
-                                    station_name  == "KOINGNAAS" ~ "Hondeklipbaai",
+      mutate(temp_sites = case_when(station_name == "CAPE TOWN TABLE BAY" ~ "Sea Point",
+                                    station_name == "CAPE TOWN - ROYAL YACHT CLUB" ~ "Sea Point",
+                                    station_name  == "GEELBEK" ~ "Yzerfontein",
+                                    station_name  == "CAPE TOWN SLANGKOP" ~ "Kommetjie",
                                     station_name  == "PORT NOLLOTH" ~"Port Nolloth",
                                     station_name  == "LAMBERTSBAAI NORTIER" ~ "Lamberts Bay",
                                     station_name  == "LANGEBAANWEG AWS" ~ "Saldanha Bay"))
@@ -597,50 +598,51 @@ renaming_sites_1 <- function(df) {
 }
 
 
-
 wind_sitesmatched_1 <-  renaming_sites_1(df = wind_1)
-# RWS: You should never be removing values by specific call like this
-  # Rather you should be able to use some sort of conditional to screen out unwanted values
-wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ]
-
-renaming_sites_2 <- function(df) {
-  sites <- df %>%
-    mutate(temp_sites = ifelse(station_name %in% c("ROBBENEILAND"), "Koeberg Basin",        
-                           ifelse(station_name %in% c("GEELBEK"), "Yzerfontein",
-                                ifelse(station_name %in% c("DASSEN ISLAND"), "Dassen Island",
-                                       ifelse(station_name %in% c("ATLANTIS"), "Koeberg Basin","Error")))))
-  return(sites)
-}
-
-wind_sitesmatched_2 <-  renaming_sites_2(df = wind_2)
-wind_sitesmatched_2 <- wind_sitesmatched_2[-c(228372, 228373, 313441, 313442, 364881, 364882, 557392), ] 
-
-renaming_sites_3 <- function(df) {
-  sites <- df %>%
-    mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Kommetjie",  
-                           ifelse(station_name %in% c("CAPE TOWN - ROYAL YACHT CLUB"), "Sea Point",
-                           ifelse(station_name %in% c("CAPE TOWN TABLE BAY"), "Sea Point","Error"))))
-  return(sites)
-}
-
-wind_sitesmatched_3 <-  renaming_sites_3(df = wind_3)
-wind_sitesmatched_3 <- wind_sitesmatched_3[-c(119317, 119318, 196551, 196552, 346759), ] 
-
-## CAPE TOWN SLANGKOP may be used for Kommetjie and for Houtbay
-wind_3_HoutBay <- wind_3 %>% 
-  filter(station_name == "CAPE TOWN SLANGKOP") %>% 
-  mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Hout Bay","Error"))
-
-wind_data <- rbind(wind_3_HoutBay,wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
-wind_data <- wind_data %>% 
-  na.omit()
-
-wind_data <- wind_data %>% 
-  # mutate(date = as.Date(date)) %>%  
-  group_by(date, hour, temp_sites) 
-
-# write.csv(wind_data, file = "Data_P1/wind_data.csv", row.names = T)
+wind_sitesmatched_2 <-  renaming_sites_1(df = wind_2)
+wind_sitesmatched_3 <-  renaming_sites_1(df = wind_3)
+wind_data <- rbind(wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
 # save(wind_data, file = "Data_P1/wind_data.RData")
+
+
+# # RWS: You should never be removing values by specific call like this
+#   # Rather you should be able to use some sort of conditional to screen out unwanted values
+# wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ]
+# renaming_sites_2 <- function(df) {
+#   sites <- df %>%
+#     mutate(temp_sites = ifelse(station_name %in% c("ROBBENEILAND"), "Koeberg Basin",        
+#                            ifelse(station_name %in% c("GEELBEK"), "Yzerfontein",
+#                                 ifelse(station_name %in% c("DASSEN ISLAND"), "Dassen Island",
+#                                        ifelse(station_name %in% c("ATLANTIS"), "Koeberg Basin","Error")))))
+#   return(sites)
+# }
+# 
+# wind_sitesmatched_2 <-  renaming_sites_2(df = wind_2)
+# wind_sitesmatched_2 <- wind_sitesmatched_2[-c(228372, 228373, 313441, 313442, 364881, 364882, 557392), ] 
+# renaming_sites_3 <- function(df) {
+#   sites <- df %>%
+#     mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Kommetjie",  
+#                            ifelse(station_name %in% c("CAPE TOWN - ROYAL YACHT CLUB"), "Sea Point",
+#                            ifelse(station_name %in% c("CAPE TOWN TABLE BAY"), "Sea Point","Error"))))
+#   return(sites)
+# }
+# 
+# wind_sitesmatched_3 <-  renaming_sites_3(df = wind_3)
+# wind_sitesmatched_3 <- wind_sitesmatched_3[-c(119317, 119318, 196551, 196552, 346759), ] 
+### CAPE TOWN SLANGKOP may be used for Kommetjie and for Houtbay
+# wind_3_HoutBay <- wind_3 %>% 
+#   filter(station_name == "CAPE TOWN SLANGKOP") %>% 
+#   mutate(temp_sites = ifelse(station_name %in% c("CAPE TOWN SLANGKOP"), "Hout Bay","Error"))
+# wind_data <- rbind(wind_3_HoutBay,wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
+# wind_data <- wind_data %>% 
+#   na.omit()
+# 
+# wind_data <- wind_data %>% 
+#   # mutate(date = as.Date(date)) %>%  
+#   group_by(date, hour, temp_sites) 
+# 
+# # write.csv(wind_data, file = "Data_P1/wind_data.csv", row.names = T)
+# # save(wind_data, file = "Data_P1/wind_data.RData")
 
 # Loading the wind data
 library(tidyverse)
@@ -649,50 +651,50 @@ library(circular)
 # wind_data <- read_csv("wind_data.csv", col_types = cols(X1 = col_number(), date = col_character(), dir = col_number(), hour = col_number(),  speed = col_number())) # Dataset too large for Github but better data at line 638
 
 # wind_data <- read_csv("Data_P1/wind_data.csv")
+selected_sites <- c("Port Nolloth", "Lamberts Bay", "Sea Point", "Saldanha Bay", "Yzerfontein", "Kommetjie") 
 
 wind_daily <- wind_data %>%
   # ungroup() %>%
   # mutate(date = as.Date(date))%>%
   dplyr::group_by(temp_sites, date) %>%
+  filter(temp_sites %in% selected_sites) %>% 
   dplyr::summarise(dir_circ = round(mean.circular(circular(dir, units = "degrees")),2),
-                   mean_speed = round(mean(speed),2))
+                   mean_speed = round(mean(speed),2)) 
+
 
 # save(wind_daily, file = "Data_P1/wind_daily.RData")
-# Loading in the daily wind data
-load("Data_P1/wind_daily.RData")
+# # Loading in the daily wind data
 
-# Subsetting to particular sites 
-selected_sites <- c("Port Nolloth", "Lamberts Bay", "Sea Point", "Saldanha Bay", "Yzerfontein", "Kommetjie") 
-
-wind_daily_sub <- wind_daily %>% 
-  dplyr::rename(site = temp_sites) %>% 
-  filter(site %in% selected_sites)
-
-# save(wind_daily_sub, file = "Data_P1/wind_daily_sub.RData")
-# Loading in the daily wind data
-# load("Data_P1/wind_daily_sub.RData")
+# Loading the subsetted wind data created from the text files above 
+load("Data_P1/wind_daily.RData") 
 ```
  
 Matching wind data to the in situ collected data. This is done in order to plot the wind patterns for the same date at which temperature was collected. The satellite obtained SST data is also matched by date to the in situ temperature data and so the dates correspond. 
 
 ```{r}
-insitu_wind <- match_func(df = wind_daily_sub) %>%
-  drop_na()
+load("Data_P1/SACTN_overlap.RData")
+load("Data_P1/wind_daily.RData")
+wind_daily <- wind_daily%>% 
+  dplyr::rename(site = temp_sites) # Renaming to match the `match_func` previously created
+
+insitu_wind <- match_func(df = wind_daily)  # Using `match_func`
+
 insitu_wind <- insitu_wind %>% 
   filter(year(date) %in% seq(2010, 2014)) # The years 2010-2014 is the years of interest and the years for which wavelets are/will be created.
   
 # save(insitu_wind, file = "Data_P1/insitu_wind.RData")
-# Loading in the daily wind data
-# load("Data_P1/insitu_wind.RData")
 ```
 
 # Plotting the wind data - Waverose diagrams
 
 ```{r}
+# Loading in the matched wind data
+load("Data_P1/insitu_wind.RData")
+
 wave_daily_renamed <- insitu_wind %>% 
   dplyr::rename(spd = mean_speed) %>%
   dplyr::rename(dir = dir_circ) 
-
+source("functions/wind.rose.R")
 p.wr2 <- plot.windrose(data = wave_daily_renamed,
               spd = "spd",
               dir = "dir")
@@ -709,48 +711,48 @@ Extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla d
 # MODIS_chlor.dir <- "/home/amieroh/Documents/Data/Datasets/Chlorophyll_a"
 # MODIS_chlor.csv.dir <- "/home/amieroh/Documents/Data/Datasets"
 
-region <- "BC" # Benguela Current
-# coords <- bbox[, region] # RWS: Where does bbox come from?
-coords <- c(-35, -20, 10, 20) # this is the BC
-
-ncList <- list.files(path = MODIS_chlor.dir, pattern = "*.nc", full.names = TRUE, include.dirs = TRUE)
-strt.date <- str_sub(basename(ncList[1]), start = 2, end = 8)
-end.date <- str_sub(basename(ncList[length(ncList)]), start = 2, end = 8)
-nc.init <- nc_open(ncList[1])
-LatIdx <- which(nc.init$dim$lat$vals > coords[1] & nc.init$dim$lat$vals < coords[2])
-LonIdx <- which(nc.init$dim$lon$vals > coords[3] & nc.init$dim$lon$vals < coords[4])
-nc_close(nc.init)
-
-
-ncFun <- function(nc.file = nc.files, csv.dir = csv.dir) {
-nc <- nc_open(nc.file)
-  instrument <- ncatt_get(nc, 0, "instrument")$value
-  platform <- ncatt_get(nc, 0, "platform")$value
-  product_name <- ncatt_get(nc, 0, "product_name")$value
-  fNameStem <- substr(product_name, 17, 38)
-  timeStamp <- substr(product_name, 2, 8)
-  origin <- paste0(substr(timeStamp, 1, 4), "-01-01")
-  date <- as.Date(as.numeric(substr(timeStamp, 5, 7)), origin)
-  chl <- round(ncvar_get(nc,
-                   varid = "chlor_a",
-                   start = c(LonIdx[1], LatIdx[1]),
-                   count = c(length(LonIdx), length(LatIdx))),
-               3)
-  dimnames(chl) <- list(lon = nc$dim$lon$vals[LonIdx],
-                        lat =  nc$dim$lat$vals[LatIdx])
-  nc_close(nc)
-  chl <-
-    as.data.table(melt(chl, value.name = "chl"), row.names = NULL) %>%
-    mutate(t = date) %>%
-    na.omit()
-  fwrite(chl,
-         file = paste(csv.dir, "/", region, "-", instrument, ".",platform, ".",
-                      fNameStem, "-", strt.date, "-", end.date, ".csv", sep = ""),
-         append = TRUE, col.names = FALSE)
-  rm(chl)
-}
-
-llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
+# region <- "BC" # Benguela Current
+# 
+# coords <- c(-35, -20, 10, 20) # this is the BC
+# 
+# ncList <- list.files(path = MODIS_chlor.dir, pattern = "*.nc", full.names = TRUE, include.dirs = TRUE)
+# strt.date <- str_sub(basename(ncList[1]), start = 2, end = 8)
+# end.date <- str_sub(basename(ncList[length(ncList)]), start = 2, end = 8)
+# nc.init <- nc_open(ncList[1])
+# LatIdx <- which(nc.init$dim$lat$vals > coords[1] & nc.init$dim$lat$vals < coords[2])
+# LonIdx <- which(nc.init$dim$lon$vals > coords[3] & nc.init$dim$lon$vals < coords[4])
+# nc_close(nc.init)
+# 
+# 
+# ncFun <- function(nc.file = nc.files, csv.dir = csv.dir) {
+# nc <- nc_open(nc.file)
+#   instrument <- ncatt_get(nc, 0, "instrument")$value
+#   platform <- ncatt_get(nc, 0, "platform")$value
+#   product_name <- ncatt_get(nc, 0, "product_name")$value
+#   fNameStem <- substr(product_name, 17, 38)
+#   timeStamp <- substr(product_name, 2, 8)
+#   origin <- paste0(substr(timeStamp, 1, 4), "-01-01")
+#   date <- as.Date(as.numeric(substr(timeStamp, 5, 7)), origin)
+#   chl <- round(ncvar_get(nc,
+#                    varid = "chlor_a",
+#                    start = c(LonIdx[1], LatIdx[1]),
+#                    count = c(length(LonIdx), length(LatIdx))),
+#                3)
+#   dimnames(chl) <- list(lon = nc$dim$lon$vals[LonIdx],
+#                         lat =  nc$dim$lat$vals[LatIdx])
+#   nc_close(nc)
+#   chl <-
+#     as.data.table(melt(chl, value.name = "chl"), row.names = NULL) %>%
+#     mutate(t = date) %>%
+#     na.omit()
+#   fwrite(chl,
+#          file = paste(csv.dir, "/", region, "-", instrument, ".",platform, ".",
+#                       fNameStem, "-", strt.date, "-", end.date, ".csv", sep = ""),
+#          append = TRUE, col.names = FALSE)
+#   rm(chl)
+# }
+# 
+# llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
 
 # MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
 # MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
@@ -764,66 +766,69 @@ llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
 ```{r}
 
 # Loading the data
-load("Data_P1/MODIS_Chloro.RData") # Extracted/Raw chlorophyll data
-load("Data_P1/site_list_sub.Rdata") # Site list of all the sites along the west coast
-
-# Visualisation
-chloro_plot <- MODIS_Chloro %>%
-  filter(date == min(date)) %>%
-  ggplot(aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = chloro))
-
-unique_pixel <- MODIS_Chloro %>% 
-  select(lon, lat) %>% 
-  unique()
-
-match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
-                          query = as.matrix(site_list_sub[,5:6]), k = 1)
-
-# Matching the chlorophylla-a lats and lons to the study sites
-pixel_match <- unique_pixel[match_index,] %>%
-  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-  mutate(site = site_list_sub$site)
-
-chloro_match <- MODIS_Chloro %>%
-  unite(col = combi, lon, lat, sep = "/", remove = F) %>%
-  filter(combi %in% pixel_match$combi)
-
-chloro_match %>%
-  filter(date == max(date)) %>%
-  ggplot(aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = chloro))
-
-chloro_sites <- chloro_match %>%
-  left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
-  dplyr::mutate(date = as.Date(date))
-# save(chloro_sites, file = "Data_P1/chloro_sites.RData")
-
-# Visualisation
-Chloro_plot_complete <- ggplot(chloro_sites, aes(x = date, y = chloro)) +
-  geom_line() +
-  facet_wrap(~site, ncol = 1)
-Chloro_plot_complete
-
-# Study period from 2010 - 2014
-chloro_data <- chloro_sites %>% 
-  filter(year(date) %in% seq(2010, 2014))
-# save(chloro_data, file = "Data_P1/chloro_data.RData")
-
-# Plotting only years 2014-2015
-Chloro_plot_filtered <- ggplot(chloro_data, aes(x = date, y = chloro)) +
-  geom_line() +
-  facet_wrap(~site, ncol = 1)
-Chloro_plot_filtered
+# load("Data_P1/MODIS_Chloro.RData") # Extracted/Raw chlorophyll data
+# load("Data_P1/site_list_sub.Rdata") # Site list of all the sites along the west coast
+# 
+# # Visualisation
+# chloro_plot <- MODIS_Chloro %>%
+#   filter(date == min(date)) %>%
+#   ggplot(aes(x = lon, y = lat)) +
+#   geom_raster(aes(fill = chloro))
+# 
+# unique_pixel <- MODIS_Chloro %>% 
+#   select(lon, lat) %>% 
+#   unique()
+# 
+# match_index <- knnx.index(data = as.matrix(unique_pixel[,1:2]),
+#                           query = as.matrix(site_list_sub[,5:6]), k = 1)
+# 
+# # Matching the chlorophylla-a lats and lons to the study sites
+# pixel_match <- unique_pixel[match_index,] %>%
+#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+#   mutate(site = site_list_sub$site)
+# 
+# chloro_match <- MODIS_Chloro %>%
+#   unite(col = combi, lon, lat, sep = "/", remove = F) %>%
+#   filter(combi %in% pixel_match$combi)
+# 
+# chloro_match %>%
+#   filter(date == max(date)) %>%
+#   ggplot(aes(x = lon, y = lat)) +
+#   geom_raster(aes(fill = chloro))
+# 
+# chloro_sites <- chloro_match %>%
+#   left_join(pixel_match, by = c("combi", "lon", "lat")) %>% 
+#   dplyr::mutate(date = as.Date(date))
+# # save(chloro_sites, file = "Data_P1/chloro_sites.RData")
+# 
+# # Visualisation
+# load("Data_P1/chloro_sites.RData")
+# Chloro_plot_complete <- ggplot(chloro_sites, aes(x = date, y = chloro)) +
+#   geom_line() +
+#   facet_wrap(~site, ncol = 1)
+# Chloro_plot_complete
+# 
+# # Study period from 2010 - 2014
+# chloro_data <- chloro_sites %>% 
+#   filter(year(date) %in% seq(2010, 2014))
+# # save(chloro_data, file = "Data_P1/chloro_data.RData")
+# 
+# # Plotting only years 2014-2015
+# load("Data_P1/chloro_data.RData")
+# Chloro_plot_filtered <- ggplot(chloro_data, aes(x = date, y = chloro)) +
+#   geom_line() +
+#   facet_wrap(~site, ncol = 1)
+# Chloro_plot_filtered
 
 # Creating daily temperatures
 load("Data_P1/chloro_data.RData") # Loading in the chlorophyll-a data
 
-daily_chloro_data <- chloro_data %>%
-  # dplyr::mutate(date = as.Date(date)) %>% # RWS: The values already are dates
+daily_chloro <- chloro_data %>%
+  # dplyr::mutate(date = as.Date(date)) %>% 
   dplyr::group_by(combi, lon, lat, date) %>%
   dplyr::summarise(chloro = mean(chloro, na.rm = TRUE)) %>%
-  dplyr::group_by(combi, lon, lat) %>% # RWS: Deleted the date grouping variable being used here
+  dplyr::group_by(combi, lon, lat) %>% 
+  drop_na() %>% 
   tidyr::nest() %>%
   dplyr::mutate(clims = purrr::map(data, ts2clm, x = date, y = chloro,
                      climatologyPeriod = c("2010-02-11", "2014-12-20"),
@@ -833,23 +838,68 @@ daily_chloro_data <- chloro_data %>%
   select(-doy, -seas, -thresh)
 ```
 
+
+
+
+To do list:
+- fix wind roses
+- fix chloro
+- Robs pixels
+- EOFs
+- fix pca
+
+
+
+
 ## EOF's
 
 ```{r}
 
+PCA_1 <- rda(tester)
+summary(PCA)
+
+# Proportion of variation explained
+# Values to be found opon running the code
+
+PCA <- cbind(scores(PCA_1, choices = c(1:4), display = "sites"))
+PCA_spe <- cbind(scores(PCA_1, choices = c(1:4), display = "species"))
+
+test1 <- ggplot(PCA, aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = PC1)) +
+  geom_polygon(data = PC1, aes(long, lat, group = group),
+               fill = NA, colour = "blue", size = 0.3) +
+  geom_polygon(data = velocity, aes(long, lat, group = group),
+               fill = NA, colour = "green", size = 0.3)+ 
+         fill = guide_colourbar(title = "PC1")
+
+test2 <- ggplot(PCA, aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = PC2)) +
+  geom_polygon(data = PC1, aes(long, lat, group = group),
+               fill = NA, colour = "blue", size = 0.3) +
+  geom_polygon(data = velocity, aes(long, lat, group = group),
+               fill = NA, colour = "green", size = 0.3)+ 
+         fill = guide_colourbar(title = "PC2")
+
+test3 <- ggplot(PCA, aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = PC2)) +
+  geom_polygon(data = PC1, aes(long, lat, group = group),
+               fill = NA, colour = "blue", size = 0.3) +
+  geom_polygon(data = velocity, aes(long, lat, group = group),
+               fill = NA, colour = "green", size = 0.3)+ 
+         fill = guide_colourbar(title = "PC3")
+
+test4 <- ggplot(PCA, aes(x = lon, y = lat)) +
+  geom_raster(aes(fill = PC1)) +
+  geom_polygon(data = PC1, aes(long, lat, group = group),
+               fill = NA, colour = "blue", size = 0.3) +
+  geom_polygon(data = velocity, aes(long, lat, group = group),
+               fill = NA, colour = "green", size = 0.3)+ 
+         fill = guide_colourbar(title = "PC4")
+
+pc1_combined <- ggarrange( test1, test2, test3, test4)
+
 ```
 
-In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that
-those differences are due to changes in upwelling intensity.
-
-- Detemining the upwelling indeces in R
-- How does upwelling indeces vary at the different distances along the coast
-- Positive indeces display a positive upwelling. 
+In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that those differences are due to changes in upwelling intensity.
 
 
-Things to do
-
-- Plot seasonal detrend
-- chlorophyll a data
-- fix windrose plot
-- Stastical analyses
