@@ -919,28 +919,6 @@ library(multcomp) # for generalized linear hypothesis test (glht)
 Determining the R2 value between *in situ* and remotely sensed SST
 
 ```{r}
-# Load time series for both datasets
-load("prep/SA_coastal_temps.RData")
-SA_coastal_temps$date <- as.Date(SA_coastal_temps$date)
-load("data/OISSTdaily.Rdata")
-
-resultsR2 <- data.frame()
-for(i in 1:length(levels(SA_coastal_temps$site))) {
-  x <- subset(SA_coastal_temps, site == levels(SA_coastal_temps$site)[i])
-  y <- subset(OISSTdaily, site == levels(SA_coastal_temps$site)[i])
-  x <- x[x$date %in% y$date,]
-  y <- y[y$date %in% x$date,]
-  z <- data.frame(site = as.character(x$site[1]), R2 = round(coef(lm(y$temp~x$temp))[2],2))
-  resultsR2 <- rbind(resultsR2, z)
-}
-
-# Add column for plotting
-row.names(resultsR2) <- NULL
-resultsR2$R22 <- paste0("R^2 ==", format(resultsR2$R2, digits=2))
-```
-
-
-```{r}
 # Loading the *in situ* and Remotely sensed SST
 
 load("Data_P1/SACTN_fyears.RData")
