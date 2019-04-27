@@ -213,7 +213,7 @@ knitr::include_graphics("../Figures/site_map.png")
 
 ```{r  echo= FALSE, message=FALSE, warning=FALSE, fig.cap="Wind rose diagrams representing the the most predominant wind direction for each of the sites for the years 2010 - 2014. Each spoke is divided by color into wind speed ranges. The radial length of each spoke around the circle is the amount of times that the wind comes from that direction", fig.height=8, fig.width=12, fig.pos="H"}
 
- knitr::include_graphics("../figures/wind.png")
+ knitr::include_graphics("../Figures/wind.png")
 ```
 
 ## Local and broad scale upwelling

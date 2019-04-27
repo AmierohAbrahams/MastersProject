@@ -941,12 +941,6 @@ for(i in 1:length(levels(SACTN_fyears$site))) {
 }
 ```
 
-
-
-
-
-
-
 ## EOF's
 
 ```{r} 
@@ -997,13 +991,10 @@ pc1_combined <- ggarrange( test1, test2, test3, test4)
 
 In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that those differences are due to changes in upwelling intensity.
 
-Mond:
+To do:
 - Try PCA
-- map it/plot
+- plot
 - dave upwelling index
-
-Tuesday
-- Do exercises
 
 
 

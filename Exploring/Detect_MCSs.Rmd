@@ -458,7 +458,8 @@ MCS <- res$climatology
 MCS_MUR_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
            start_date = "2011-12-31", end_date = "2014-10-30") +
   ggtitle("MUR_PN") 
-
+library(tidyverse)
+library(heatwaveR)
 MUR_SST_LB <- MUR_SST %>% 
   filter(site == "Lamberts Bay") %>% 
   dplyr::rename(temp = nearest1) %>% 
