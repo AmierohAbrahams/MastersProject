@@ -35,7 +35,6 @@ library(plyr)
 library(maptools)
 library(sp)
 library(geosphere)
-# library(marmap)
 library(PBSmapping)
 library(scales)
 library(grid)
@@ -43,15 +42,13 @@ library(gridExtra)
 library(circular)
 library(fossil)
 library(mapproj)
-# library(rgeos)
 library(ncdf4)
-# library(sinkr)
-library(spacetime)
 library(reshape2)
 library(plyr) # Never load plyr when also loading the tidyverse. It causes a lot of conflicts.
 library(stringr)
 library(doMC); doMC::registerDoMC(cores = 4)
 library(fasttime)
+library(xtable)
 
 # library(devtools)
 # install_github("marchtaylor/sinkr")
@@ -59,6 +56,8 @@ library(fasttime)
 ## Functions
 source("functions/earthdist.R")
 source("functions/wind.rose.R")
+source("functions/theme.R")
+source("functions/scale.bar.func.R")
 ```
 
 ## Load site list SACTN data
@@ -285,20 +284,10 @@ OISST_plot <- match_plot(df = insitu_OISST)
 OISST_temp <- temp_plot(df = insitu_OISST)
 ```
 
-Loading in the matched satellite temperature data
-
-```{r}
-load("Data_P1/SACTN_overlap.RData")
-load("Data_P1/insitu_MUR.RData")
-load("Data_P1/insitu_OISST.RData")
-load("Data_P1/insitu_G1SST.RData")
-load("Data_P1/insitu_K10.RData")
-```
-
 ## Wavelets
 Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2010 - 2014. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
 
-## Load in the datasets
+## Loading in the matched satellite temperature data
 
 ```{r}
 load("Data_P1/SACTN_overlap.RData")
@@ -324,6 +313,12 @@ MUR_fyears <- filtered_years(df = insitu_MUR)
 OISST_fyears <- filtered_years(df = insitu_OISST) 
 G1SST_fyears <- filtered_years(df = insitu_G1SST) 
 K10_fyears <- filtered_years(df = insitu_K10) 
+
+# save(SACTN_fyears, file = "Data_P1/SACTN_fyears.RData")
+# save(MUR_fyears, file = "Data_P1/MUR_fyears.RData")
+# save(OISST_fyears, file = "Data_P1/OISST_fyears.RData")
+# save(G1SST_fyears, file = "Data_P1/G1SST_fyears.RData")
+# save(K10_fyears, file = "Data_P1/K10_fyears.RData")
 ```
 
 # Wavelet analyses
@@ -393,12 +388,23 @@ ldply(PN_wave, plot_fun, .parallel = T) # RWS: Allow parallel processing
 
 #########################################################################################################################
 
+## Load in the datasets
+
+```{r}
+load("Data_P1/SACTN_overlap.RData")
+load("Data_P1/insitu_MUR.RData")
+load("Data_P1/insitu_OISST.RData")
+load("Data_P1/insitu_G1SST.RData")
+load("Data_P1/insitu_K10.RData")
+```
+
 # Calculating a shore transect
 
 The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km).
 
 ```{r}
 load("Data_P1/site_list_sub.Rdata")
+xtable(site_list_sub, auto = TRUE)
 west <- site_list_sub
 west$coast <- "west" # Chnages wc to west
 
@@ -504,53 +510,68 @@ bbox <- data.frame(xmin = destPoint(p = site_pixels[1,2:3], b = 270, d = 12500)[
 ```
 
 ## Create a visualisation of the sites at the different distances from the coastline
-****Fix: Fill to show the temperature variation at Benguela coast| also fix the site names*
 
 ```{r}
-
 load("Data_P1/south_africa_coast.RData")
 load("Data_P1/bathy/sa_bathy.RData")
 load("Data_P1/bathy/bathy.RData")
+load("Data_P1/site_list_sub.Rdata")
+load("Data_P1/site_pixels.RData")
+load("Data_P1/MUR.RData")
 names(south_africa_coast)[1] <- "lon"
 
 # Manually divide up coastline
 wc <- south_africa_coast[291:410,]
 
+# Setting up the theme
+theme_set(theme_bw())
+limits <- c(12,28) # for colour bar
+#breaks <- seq(6, 30, 2) # Create breaks to be used for colour bar
+
 # Define plotting parameters
-sa_lats <- c(-37, -27); sa_lons <- c(14, 34)
+sa_lats <- c(-37, -27); sa_lons <- c(14, 50)
 
-
- plot1 <- ggplot() +#coord_equal() + 
-  geom_raster(data = sa_bathy, aes(x = lon, y = lat, fill = depth)) +
-  #geom_raster(data = isobath200, aes(x = lon, y = lat, fill = coast)) +
-  stat_contour(data = sa_bathy, aes(x = lon, y = lat, z = depth, alpha = ..level..), 
-               colour = "black", size = 0.2, binwidth = 200, na.rm = TRUE, show_guide = FALSE) +
-  geom_polygon(data = south_africa_coast, aes(x = lon, y = lat, group = group), 
-               size = 0.5, colour = "black", fill = "white") +
-  #geom_path(data = sa_provinces_new, aes(x = long, y = lat, group = group)) +
-  # geom_polygon(data = wcBox, aes(x = lon, y = lat, group = group), alpha = 0.20, 
-  #              colour = "bisque1", fill = "bisque1") +
-  geom_point(data = site_list_sub, aes(x = lon, y = lat), alpha = 0.8, size = 1.6) +
+site_map <- ggplot(data = south_africa_coast, aes(x = lon, y = lat)) + bw_update +
+  geom_raster(data = MUR, aes(x = lon, y = lat, fill = temp)) +
+   geom_polygon(data = south_africa_coast, aes(x = lon, y = lat, group = group),
+                fill = "grey", colour = "grey", size = 0.1, show.legend = FALSE) +
+  geom_point(data = site_list_sub, aes(x = lon, y = lat), alpha = 0.8, size = 3) +
   geom_point(data = site_pixels, aes(x = lon, y = lat), colour = "white", shape = 0, alpha = 0.8, size = 2.1) +
-  geom_rect(data = bbox, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
-            alpha = 0.4, colour = "red", size = 0.1, linetype = 1) +
-  scale_alpha_continuous(breaks = c(-200, -1000, -2000, -3000, -4000, -5000),
-                         guide_legend(title = "depth (m)")) +
-  scale_fill_gradient(low = "dodgerblue4", high = "dodgerblue", na.value = "steelblue4", 
-                      breaks = c(-1000, -2000, -3000, -4000, -5000),
-                      guide_legend(title = "depth (m)")) +
-  labs(title = NULL, x = NULL, y = NULL) +
-  guides(colour = guide_legend(override.aes = list(size = 3))) +
-  #guide_legend(ncol = 2) +
-  theme(legend.key = element_rect(colour = NA, size = 0.2),
-        legend.key.height = unit(0.4, "cm"),
-        legend.background = element_blank()) +
-        #legend.justification = c(1,0), legend.position = c(0.5, 0.4)) +
-  coord_cartesian(xlim = sa_lons, ylim = sa_lats)
- plot1
- 
- # Added in the bathy data but this is not needed for any of the analyses.
- # This just shows the bounding boxes 
+  # geom_rect(data = bbox, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
+  #           alpha = 0.4, colour = "red", size = 0.1, linetype = 1) +
+  # scale_x_continuous(limits = sa_lons, expand = c(0, 0), breaks = seq(15, 35, 5)) +
+  # scale_y_continuous(limits = sa_lats, expand = c(0, 0), breaks = seq(-35, -30, 5)) +
+  scale_fill_viridis(
+    option = "magma",
+    name = "Temperature (°C)",
+    alpha = 0.8) +
+  #scale_fill_viridis(limits = limits, expression(paste("Temperature (°C)"))) +
+  xlab("") + ylab("") +
+  annotate("text", label = "INDIAN\nOCEAN", x = 32.00, y = -35.0,
+             size = 5, angle = 0, colour = "black") +
+    annotate("text", label = "ATLANTIC\nOCEAN", x = 17.00, y = -35.0,
+             size = 5, angle = 0, colour = "black") +
+    annotate("text", label = "Benguela", x = 16.0, y = -31.7,
+             size = 6, angle = 302, colour = "black") +
+    annotate("text", label = "Agulhas", x = 31.7, y = -31.7,
+             size = 6, angle = 50, colour = "black") +
+  guides(fill = guide_colourbar()) +
+  scale_x_continuous(expand = c(0, 0),
+                       labels = scales::unit_format(unit = "°E", sep = "")) +
+    scale_y_continuous(expand = c(0, 0),
+                       labels = scales::unit_format(unit = "°S", sep = "")) +
+  theme(panel.background = element_rect(fill = "ivory", colour = NA),
+        panel.border = element_rect(colour = "black", size = 0.5),
+        panel.grid.minor = element_line(colour = "NA"),
+        panel.grid.major = element_line(colour = "ivory", size = 0.2, linetype = "dotted"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.key = element_blank(),
+        legend.background = element_blank(),
+        axis.ticks = element_line(size = 0.5))
+site_map
+
+# png("Figures/site_map.png", width = 8, height = 5, pointsize = 6)
 ```
 
 # Wind data
@@ -604,7 +625,6 @@ wind_sitesmatched_3 <-  renaming_sites_1(df = wind_3)
 wind_data <- rbind(wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
 # save(wind_data, file = "Data_P1/wind_data.RData")
 
-
 # # RWS: You should never be removing values by specific call like this
 #   # Rather you should be able to use some sort of conditional to screen out unwanted values
 # wind_sitesmatched_1 <- wind_sitesmatched_1[-c(121352, 121353, 379892, 379893, 609324, 609325, 843506, 843507, 1014585), ]
@@ -644,6 +664,29 @@ wind_data <- rbind(wind_sitesmatched_3,wind_sitesmatched_2,wind_sitesmatched_1)
 # # write.csv(wind_data, file = "Data_P1/wind_data.csv", row.names = T)
 # # save(wind_data, file = "Data_P1/wind_data.RData")
 
+# load("Data_P1/insitu_wind.RData")
+# 
+# test1 <- insitu_wind %>% 
+#   mutate(lat = case_when(site == "Port Nolloth" ~ "-29.25241",
+#                                     site == "Saldanha Bay" ~ "-33.01054",
+#                                     site  == "Yzerfontein" ~ "-33.36068",
+#                                     site  == "Kommetjie" ~ "-34.13667",
+#                                     site  == "Lamberts Bay" ~ "-32.09185",
+#                                     site  == "Sea Point" ~ "-33.91847"))
+# 
+# test <- test1 %>% 
+#   mutate(lon = case_when(site == "Port Nolloth" ~ "16.86710",
+#                                     site == "Saldanha Bay" ~ "17.95063",
+#                                     site  == "Yzerfontein" ~ "18.15731",
+#                                     site  == "Kommetjie" ~ "18.32674",
+#                                     site  == "Lamberts Bay" ~ "18.30262",
+#                                     site  == "Sea Point" ~ "18.38217"))
+# 
+# test_final <- test %>% 
+#   select(date,lat,lon,dir_circ, mean_speed) %>% 
+#   dplyr::rename(speed = mean_speed) %>% 
+#   dplyr::rename(dir = dir_circ)
+
 # Loading the wind data
 library(tidyverse)
 library(circular)
@@ -672,15 +715,15 @@ load("Data_P1/wind_daily.RData")
 Matching wind data to the in situ collected data. This is done in order to plot the wind patterns for the same date at which temperature was collected. The satellite obtained SST data is also matched by date to the in situ temperature data and so the dates correspond. 
 
 ```{r}
-load("Data_P1/SACTN_overlap.RData")
-load("Data_P1/wind_daily.RData")
-wind_daily <- wind_daily%>% 
-  dplyr::rename(site = temp_sites) # Renaming to match the `match_func` previously created
-
-insitu_wind <- match_func(df = wind_daily)  # Using `match_func`
-
-insitu_wind <- insitu_wind %>% 
-  filter(year(date) %in% seq(2010, 2014)) # The years 2010-2014 is the years of interest and the years for which wavelets are/will be created.
+# load("Data_P1/SACTN_overlap.RData")
+# load("Data_P1/wind_daily.RData")
+# wind_daily <- wind_daily%>% 
+#   dplyr::rename(site = temp_sites) # Renaming to match the `match_func` previously created
+# 
+# insitu_wind <- match_func(df = wind_daily)  # Using `match_func`
+# 
+# insitu_wind <- insitu_wind %>% 
+#   filter(year(date) %in% seq(2010, 2014)) # The years 2010-2014 is the years of interest and the years for which wavelets are/will be created.
   
 # save(insitu_wind, file = "Data_P1/insitu_wind.RData")
 ```
@@ -690,6 +733,9 @@ insitu_wind <- insitu_wind %>%
 ```{r}
 # Loading in the matched wind data
 load("Data_P1/insitu_wind.RData")
+
+insitu_wind <- insitu_wind %>% 
+  drop_na()
 
 wave_daily_renamed <- insitu_wind %>% 
   dplyr::rename(spd = mean_speed) %>%
@@ -701,6 +747,28 @@ p.wr2 <- plot.windrose(data = wave_daily_renamed,
 p.wr3 <- p.wr2 + facet_wrap(.~ site, ncol = 2, nrow = "") +
   theme(strip.text.x = element_text(size = 25))
 p.wr3 # RWS: You'll want to remove the NA part in the figure output
+
+#########################
+library(openair)
+print(
+with(insitu_wind,
+     windRose(data_frame(ws=mean_speed, wd=dir_circ, 
+                         date=date, station=factor(site)),
+
+              paddle=FALSE, type="station", width=2))
+)
+png("Figures/wind.png", width = 8, height = 5, pointsize = 6)
+?windRose
+# insitu_wind_2 <- insitu_wind %>% 
+#   filter(site == "Port Nolloth")
+# 
+# insitu_wind_3 <- insitu_wind %>% 
+#   filter(site == "Lamberts Bay")
+# 
+# plotPN <- plot(as.factor(format(insitu_wind_2$date, "%Y-%m")), insitu_wind_2$insitu_temp, col = "lightpink")
+# plotLB <- plot(as.factor(format(insitu_wind_3$date, "%Y-%m")), insitu_wind_3$insitu_temp, col = "lightpink")
+#        
+# ?plot
 ```
 
 ## Chlorophyll-a data
@@ -755,7 +823,7 @@ Extract the chlorophyll a netCDF files and convert it to CSV. The chlorophylla d
 # llply(ncList, ncFun, csv.dir = MODIS_chlor.csv.dir, .parallel = TRUE)
 
 # MODIS_Chloro <- "~/Documents/Masters_2019/MastersProject/Data"
-# MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-MODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
+# MODIS_Chloro <- fread(paste0(MODIS_Chloro, "/BC-M ODIS.Aqua.L3m_8D_CHL_chlor_a_9km-2002185-2018345.csv"),
 #             col.names = c("lon", "lat", "chloro", "date"))
 
 # save(MODIS_Chloro, file = "Data/MODIS_Chloro.RData")
@@ -838,23 +906,72 @@ daily_chloro <- chloro_data %>%
   select(-doy, -seas, -thresh)
 ```
 
+Here I want to test using generalised linear hypotheses if there is a difference in the intensity of upwellling events between the insitu and satellite data.
+Do the in situ and satelllite derived data yield the same number of events. 
+
+library(multcomp) # for generalized linear hypothesis test (glht)
+
+```{r}
+
+```
+
+
+Determining the R2 value between *in situ* and remotely sensed SST
+
+```{r}
+# Load time series for both datasets
+load("prep/SA_coastal_temps.RData")
+SA_coastal_temps$date <- as.Date(SA_coastal_temps$date)
+load("data/OISSTdaily.Rdata")
+
+resultsR2 <- data.frame()
+for(i in 1:length(levels(SA_coastal_temps$site))) {
+  x <- subset(SA_coastal_temps, site == levels(SA_coastal_temps$site)[i])
+  y <- subset(OISSTdaily, site == levels(SA_coastal_temps$site)[i])
+  x <- x[x$date %in% y$date,]
+  y <- y[y$date %in% x$date,]
+  z <- data.frame(site = as.character(x$site[1]), R2 = round(coef(lm(y$temp~x$temp))[2],2))
+  resultsR2 <- rbind(resultsR2, z)
+}
+
+# Add column for plotting
+row.names(resultsR2) <- NULL
+resultsR2$R22 <- paste0("R^2 ==", format(resultsR2$R2, digits=2))
+```
+
+
+```{r}
+# Loading the *in situ* and Remotely sensed SST
+
+load("Data_P1/SACTN_fyears.RData")
+load("Data_P1/MUR_fyears.RData")
+load("Data_P1/OISST_fyears.RData")
+load("Data_P1/G1SST_fyears.RData")
+load("Data_P1/K10_fyears.RData")
+
+SACTN_fyears <- SACTN_fyears %>% 
+  dplyr::rename(temp = insitu_temp)
+
+R2 <- data.frame()
+for(i in 1:length(levels(SACTN_fyears$site))) {
+  x <- subset(SACTN_fyears, site == levels(SACTN_fyears$site)[i])
+  y <- subset(OISST_fyears, site == levels(OISST_fyears$site)[i])
+  x <- x[x$date %in% y$date,]
+  y <- y[y$date %in% x$date,]
+  z <- data.frame(site = as.character(x$site[1]), R2 = coef(lm(y$temp~x$temp))[2],na.action=na.exclude)
+  R2 <- rbind(R2, z)
+}
+```
 
 
 
-To do list:
-- fix wind roses
-- fix chloro
-- Robs pixels
-- EOFs
-- fix pca
 
 
 
 
 ## EOF's
 
-```{r}
-
+```{r} 
 PCA_1 <- rda(tester)
 summary(PCA)
 
@@ -901,5 +1018,57 @@ pc1_combined <- ggarrange( test1, test2, test3, test4)
 ```
 
 In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that those differences are due to changes in upwelling intensity.
+
+Mond:
+- Try PCA
+- map it/plot
+- dave upwelling index
+
+Tuesday
+- Do exercises
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

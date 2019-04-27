@@ -191,7 +191,7 @@ At a broad scale, the South African coastline exhibits a large variation in seaw
 
 ```{r , echo= FALSE, message=FALSE, warning=FALSE, fig.cap="Map representing the study region along the South African coastline. The black points represent the location of their *in situ* temperatures and approximations of the pixels used along the shore normal trasect from the satellite sea surface temperatures shown with black boxes", fig.height=8, fig.width=12, fig.pos="H"}
 
-# knitr::include_graphics("../figures/map_fixed.pdf")
+knitr::include_graphics("../Figures/site_map.png")
 ```
 
 ## Detecting the intensity and duration of upwelling
