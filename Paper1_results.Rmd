@@ -285,7 +285,7 @@ OISST_temp <- temp_plot(df = insitu_OISST)
 ```
 
 ## Wavelets
-Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2010 - 2014. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses bellow I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
+Wavelet anlyses showing the temperature variation between sites along the west coast for the years 2010 - 2014. Working with remotely-sensed SST and *in-situ* collected coastal seawater temperature, in the analyses below I aim to show how the intensity and duration of upwelling events vary between sites along the west coast of South Africa. It is important to remember that each of the datasets used within this study obtained SSTs at different resolutions. 
 
 ## Loading in the matched satellite temperature data
 
@@ -321,10 +321,14 @@ K10_fyears <- filtered_years(df = insitu_K10)
 # save(K10_fyears, file = "Data_P1/K10_fyears.RData")
 ```
 
-# Wavelet analyses
+# Wavelet analyses.
+    # This creates a visualisation looking at the intensity and duration of upwelling. 
+    # Here we test how the intensity and duration of an upwelling event vary between sites along the west coast of SA
+    # With the hypotheses that sites closer to the upwelling centre will show a more intense, longer upwelling event
 
 ```{r}
-# When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
+# When doing a wavelet analyses on the SACTN dataset the "insitu_temp" column needed to be renamed to "temp" for the rest of the code to run. 
+# The rest of this code is kept constant for each of the datasets (Remotely-sensed SST and In-situ seawater temperature)
 
 SACTN_fyears <- SACTN_fyears %>%
   dplyr::rename(temp = insitu_temp)
@@ -400,7 +404,7 @@ load("Data_P1/insitu_K10.RData")
 
 # Calculating a shore transect
 
-The aim of this is to find the temperature collected at different distances from the coast (distances = 15km, 25km, 35km and 50km).
+The aim of this is to find the temperature collected at different distances from the coast (distances = 10km, 20km, 30km, 40km and 50km).
 
 ```{r}
 load("Data_P1/site_list_sub.Rdata")
@@ -464,22 +468,16 @@ transect.pixel <- function(site, distances){
   # distance_multiplier <- 1
   # while(deep > isobath){
   for(i in 1:length(distances)){
-    # Add index to show distance from coast
-    # Find depth at distance step
     coords2 <- as.data.frame(destPoint(p = coords, b = site$heading, d = distances[i]))
     sitesIdx <- knnx.index(sa_bathy[,1:2], as.matrix(coords2), k = 1)
     bathy2 <- sa_bathy[sitesIdx,]
     bathy2 <- bathy2[complete.cases(bathy2$depth),]
     bathy3 <- data.frame(site = site$site, lon = bathy2$lon, lat = bathy2$lat, 
                          heading = site$heading, 
-                         # depth = bathy2$depth,
                          distance = distances[i])
     pixels <- rbind(pixels, bathy3)
     coords <- coords2
-    # distance_multiplier <- distance_multiplier +1 
-    # deep <- bathy2$depth
   }
-  # pixels2 <- pixels[pixels$depth > -999,] 
   if(nrow(pixels) < 1){
     pixels <- data.frame(site, depth = NA)
   }else{
@@ -492,7 +490,7 @@ transect.pixel <- function(site, distances){
 site_pixels <- data.frame()
 for(i in 1:length(west$site)){
   site <- site_transects[i,]
-  site_pixel <- transect.pixel(site, c(10000, 20000, 30000, 40000, 50000)) # RWS: The desired distances
+  site_pixel <- transect.pixel(site, c(10000, 20000, 30000, 40000, 50000)) # RWS: fixed error
   site_pixels <- rbind(site_pixels, site_pixel)
 }
 
@@ -509,12 +507,12 @@ bbox <- data.frame(xmin = destPoint(p = site_pixels[1,2:3], b = 270, d = 12500)[
 # Determining the temperature at the various distances from the coast
 ```
 
-## Create a visualisation of the sites at the different distances from the coastline
+## Create a visualisation of the sites at the different distances from the coastline. Mapping the study area
 
 ```{r}
 load("Data_P1/south_africa_coast.RData")
-load("Data_P1/bathy/sa_bathy.RData")
-load("Data_P1/bathy/bathy.RData")
+# load("Data_P1/bathy/sa_bathy.RData")
+# load("Data_P1/bathy/bathy.RData")
 load("Data_P1/site_list_sub.Rdata")
 load("Data_P1/site_pixels.RData")
 load("Data_P1/MUR.RData")
@@ -529,7 +527,7 @@ limits <- c(12,28) # for colour bar
 #breaks <- seq(6, 30, 2) # Create breaks to be used for colour bar
 
 # Define plotting parameters
-sa_lats <- c(-37, -27); sa_lons <- c(14, 50)
+sa_lats <- c(-37, -27); sa_lons <- c(14, 25)
 
 site_map <- ggplot(data = south_africa_coast, aes(x = lon, y = lat)) + bw_update +
   geom_raster(data = MUR, aes(x = lon, y = lat, fill = temp)) +
@@ -537,7 +535,8 @@ site_map <- ggplot(data = south_africa_coast, aes(x = lon, y = lat)) + bw_update
                 fill = "grey", colour = "grey", size = 0.1, show.legend = FALSE) +
   geom_point(data = site_list_sub, aes(x = lon, y = lat), alpha = 0.8, size = 3) +
   geom_point(data = site_pixels, aes(x = lon, y = lat), colour = "white", shape = 0, alpha = 0.8, size = 2.1) +
-  # geom_rect(data = bbox, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
+  coord_equal(xlim = c(15, 25), ylim = c(-36,-26), expand = 0) +
+  # geom_rect(data = bbox, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
   #           alpha = 0.4, colour = "red", size = 0.1, linetype = 1) +
   # scale_x_continuous(limits = sa_lons, expand = c(0, 0), breaks = seq(15, 35, 5)) +
   # scale_y_continuous(limits = sa_lats, expand = c(0, 0), breaks = seq(-35, -30, 5)) +
@@ -545,16 +544,15 @@ site_map <- ggplot(data = south_africa_coast, aes(x = lon, y = lat)) + bw_update
     option = "magma",
     name = "Temperature (°C)",
     alpha = 0.8) +
-  #scale_fill_viridis(limits = limits, expression(paste("Temperature (°C)"))) +
   xlab("") + ylab("") +
-  annotate("text", label = "INDIAN\nOCEAN", x = 32.00, y = -35.0,
-             size = 5, angle = 0, colour = "black") +
+  # annotate("text", label = "INDIAN\nOCEAN", x = 32.00, y = -35.0,
+  #            size = 4, angle = 0, colour = "black") +
     annotate("text", label = "ATLANTIC\nOCEAN", x = 17.00, y = -35.0,
-             size = 5, angle = 0, colour = "black") +
+             size =4, angle = 0, colour = "black") +
     annotate("text", label = "Benguela", x = 16.0, y = -31.7,
-             size = 6, angle = 302, colour = "black") +
-    annotate("text", label = "Agulhas", x = 31.7, y = -31.7,
-             size = 6, angle = 50, colour = "black") +
+             size = 5, angle = 302, colour = "black") +
+    # annotate("text", label = "Agulhas", x = 31.7, y = -31.7,
+    #          size = 5, angle = 50, colour = "black") +
   guides(fill = guide_colourbar()) +
   scale_x_continuous(expand = c(0, 0),
                        labels = scales::unit_format(unit = "°E", sep = "")) +
@@ -577,7 +575,7 @@ site_map
 # Wind data
 
 Loading the Wind data. The wind dataset was supplied by the SAWS in .text format. Wind data was provided for the sites closes to the requested site as wind data may not be available for the 6 study sites in this research.  The wind direction was collected every 2 hours and by using the circular function we calcuated the daily wind direction and mean speed. There is a numerically large gap between 360 and 2 where as in degrees its not as large. The circular mean function returns the mean direction of a vector of circular data. https://cran.r-project.org/web/packages/circular/circular.pdf (Pg 130). The circular function creates circular objects around the wind direction. 
-  
+
 ```{r}
 wind_1 <- read.delim("Data_P1/Wind_data/wind_data.txt(SAWS)/wind1/wind1.txt", na.strings = "", 
                      col.names = c("station_number", "station_name", "date", "hour", "sub", "speed", "dir"))
@@ -728,7 +726,8 @@ Matching wind data to the in situ collected data. This is done in order to plot 
 # save(insitu_wind, file = "Data_P1/insitu_wind.RData")
 ```
 
-# Plotting the wind data - Waverose diagrams
+# Plotting the wind data - windrose diagrams
+  # Here I produce a wind rose diagram showing wind action or wind patterns during the upwelling period
 
 ```{r}
 # Loading in the matched wind data
@@ -757,8 +756,9 @@ with(insitu_wind,
 
               paddle=FALSE, type="station", width=2))
 )
-png("Figures/wind.png", width = 8, height = 5, pointsize = 6)
+# png("Figures/wind.png", width = 8, height = 5, pointsize = 6)
 ?windRose
+
 # insitu_wind_2 <- insitu_wind %>% 
 #   filter(site == "Port Nolloth")
 # 
@@ -906,15 +906,156 @@ daily_chloro <- chloro_data %>%
   select(-doy, -seas, -thresh)
 ```
 
-Here I want to test using generalised linear hypotheses if there is a difference in the intensity of upwellling events between the insitu and satellite data.
-Do the in situ and satelllite derived data yield the same number of events. 
+First I calculate the distance between the sites along the wc using the deg2rad function which transforms degrees to radians: Transforms between angles in degrees and radians. Thereafter I run a three way ANOVA. This was primarily done to test whether a significant difference in temperature exist between sites on a seasonal, yearly bases. Here the distance between the sites could also play a role. But distance is mainly used when compaing the intensity and duration of an upwelling event given the distance between the sites and its location (location: at an upwelling centre or further away)
 
+```{r}
+load("Data_P1/sa_coast.Rdata")
+load("Data_P1/site_list_sub.Rdata")
+load("Data_P1/SACTN_fyears.RData")
+load("Data_P1/MUR_fyears.RData")
+load("Data_P1/OISST_fyears.RData")
+load("Data_P1/G1SST_fyears.RData")
+load("Data_P1/K10_fyears.RData")
+SACTN_fyears <- SACTN_fyears %>% 
+  dplyr::rename(temp = insitu_temp)
+
+options(scipen=999) # Forces R to not use exponential notation
+sa_coast_prep <- sa_coast %>% 
+  mutate(site = 1:nrow(.),
+         X = deg2rad(X),
+         Y = deg2rad(Y)) %>% 
+  select(site, X, Y)
+
+sa_coast_dist <- as.data.frame(round(PairsDists(sa_coast_prep), 2)) %>% 
+  mutate(lon = sa_coast$X,
+         lat = sa_coast$Y) %>% 
+  dplyr::rename(dist = V1) %>%
+  select(lon, lat, dist) %>% 
+  mutate(cum_dist = cumsum(dist)) %>% 
+  mutate(dist = lag(dist),
+         cum_dist = lag(cum_dist))
+
+# Calculating the distances between sites.
+# This may be used to show how upwelling temperature varies between sites based on its location, i.e. closer 
+# to the upwelling centre and further from the upwelling centre
+
+SACTN_site_dis <- function(df) {
+  SACTN_dis <- data.frame()
+  df2 <- df %>%
+    select(-length) %>%
+    droplevels()
+  for (i in 1:length(levels(df2$index))) {  
+    # for (i in 1:10) {
+    SACTN_df_1 <- filter(df2, index == levels(index)[i])
+       # Find the cumulative distance of site 1 along the coast
+    site_dist_1 <- site_list_sub %>% 
+      filter(index == as.character(SACTN_df_1$index)[1])
+    site_dist_1 <- knnx.index(data = as.matrix(sa_coast_dist[,1:2]),
+                              query = as.matrix(site_dist_1[,5:6]), k = 1)
+    site_dist_1 <- sa_coast_dist$cum_dist[site_dist_1]
+    
+    for (j in 1:length(levels(df2$index))) {
+      # for(j in 1:10) {
+      if (i == j) {
+        next
+      }
+      if (j < i) {
+        next
+      }
+      SACTN_df_2 <- filter(df2, index == levels(index)[j])
+      
+      # Find the cumulative distance of site 2 along the coast
+      site_dist_2 <- site_list_sub %>% 
+        filter(index == as.character(SACTN_df_2$index)[1])
+      site_dist_2 <- knnx.index(data = as.matrix(sa_coast_dist[,1:2]),
+                                query = as.matrix(site_dist_2[,5:6]), k = 1)
+      site_dist_2 <- sa_coast_dist$cum_dist[site_dist_2]
+      
+      # # The distance between the two sites
+      site_dist_3 <- round(abs(site_dist_1-site_dist_2), 0)
+
+      SACTN_df_3 <- left_join(SACTN_df_1, SACTN_df_2, by = "date") %>%
+        na.trim() %>% 
+      select(date, index.x, temp.x, index.y, temp.y) %>%
+        dplyr::rename(index_1 = index.x,
+          temp_1 = temp.x,
+          index_2 = index.y,
+          temp_2 = temp.y) %>% 
+        mutate(index_dist = site_dist_3)
+      SACTN_dis <- rbind(SACTN_dis, SACTN_df_3)
+    }
+  }
+  return(SACTN_dis)
+}
+SACTN_site_dist <- SACTN_site_dis(df = SACTN_fyears)
+
+# Adding seasonal column
+
+SACTN_monthly <- function(df) {
+  SACTN_split_monthly <- df %>%
+  mutate(month = month(date, abbr = T, label = T),
+         year = year(date)) %>%
+  group_by(index, month, year) %>%
+    mutate(season = ifelse(month %in% c("Jan", "Feb", "Mar"), "Summer",       
+                           ifelse(month %in% c("Apr", "May", "Jun"), "Autumn",
+                                ifelse(month %in% c("Jul", "Aug", "Sep"), "Winter",
+                                       ifelse(month %in% c("Oct", "Nov", "Dec"), "Spring","Error")))))
+  return(SACTN_split_monthly)
+}
+
+# SACTN_season <- SACTN_monthly(df = SACTN_fyears)
+# MUR_fyears_season <- SACTN_monthly(df = MUR_fyears)
+# OISST_fyears_season <- SACTN_monthly(df = OISST_fyears)
+# G1SST_fyears_season <- SACTN_monthly(df = G1SST_fyears)
+# K10_fyears_season <- SACTN_monthly(df = K10_fyears)
+
+# save(SACTN_season, file = "SACTN_season.RData")
+# save(MUR_fyears_season, file = "MUR_fyears_season.RData")
+# save(OISST_fyears_season, file = "OISST_fyears_season.RData")
+# save(G1SST_fyears_season, file = "G1SST_fyears_season.RData")
+# save(K10_fyears_season, file = "K10_fyears_season.RData")
+
+load("Data_P1/SACTN_season.RData")
+load("Data_P1/MUR_fyears_season.RData")
+load("Data_P1/OISST_fyears_season.RData")
+load("Data_P1/G1SST_fyears_season.RData")
+load("Data_P1/K10_fyears_season.RData")
+
+# ANOVA analyses
+anova_func <- function(df){
+  sites_aov <- aov(temp ~ site * year * season, data = df)
+return(sites_aov)
+}
+
+SACTN_season <- SACTN_season %>% 
+  dplyr::rename(temp = insitu_temp)
+
+SACTN_season_func <- anova_func(df = SACTN_season)
+summary(SACTN_season_func)
+MUR_season_func <- anova_func(df = MUR_fyears_season)
+summary(MUR_season_func)
+OISST_season_func <- anova_func(df = OISST_fyears_season)
+summary(OISST_season_func)
+G1SST_season_func <- anova_func(df = G1SST_fyears_season)
+summary(G1SST_season_func)
+K10_season_func <- anova_func(df = K10_fyears_season)
+summary(K10_season_func)
+
+# Shows a significant different in temperatures between sites for each of the years and between seasons
+
+#    ? This is for all temperatures collected. not only temperatures collected during an upwelling event
+#    ? So now I need to find a way to restrict temperatures to only the periods where upwelling occured
+#    ? Can use the heatwaveR package to identify the count, intensity and duration but for this I require to know what the upwelling threshold is
+#     MHW: threshold- 90th percentile, MCS: Threshold - 10th percentile
+```
+
+# Here I want to test using generalised linear hypotheses if there is a difference in the intensity of upwellling events between the insitu and       satellite data.
+# Do the in situ and satelllite derived data yield the same number of events. First I add a seasonal column to test seasonal variation between 
 library(multcomp) # for generalized linear hypothesis test (glht)
 
 ```{r}
 
 ```
-
 
 Determining the R2 value between *in situ* and remotely sensed SST
 
@@ -922,10 +1063,7 @@ Determining the R2 value between *in situ* and remotely sensed SST
 # Loading the *in situ* and Remotely sensed SST
 
 load("Data_P1/SACTN_fyears.RData")
-load("Data_P1/MUR_fyears.RData")
 load("Data_P1/OISST_fyears.RData")
-load("Data_P1/G1SST_fyears.RData")
-load("Data_P1/K10_fyears.RData")
 
 SACTN_fyears <- SACTN_fyears %>% 
   dplyr::rename(temp = insitu_temp)
@@ -933,15 +1071,57 @@ SACTN_fyears <- SACTN_fyears %>%
 R2 <- data.frame()
 for(i in 1:length(levels(SACTN_fyears$site))) {
   x <- subset(SACTN_fyears, site == levels(SACTN_fyears$site)[i])
-  y <- subset(OISST_fyears, site == levels(OISST_fyears$site)[i])
+  y <- subset(df, site == levels(df$site)[i])
   x <- x[x$date %in% y$date,]
   y <- y[y$date %in% x$date,]
-  z <- data.frame(site = as.character(x$site[1]), R2 = coef(lm(y$temp~x$temp))[2],na.action=na.exclude)
+  z <- data.frame(site = as.character(x$site[1]), R2 = coef(lm(y$temp~x$temp))[2])
   R2 <- rbind(R2, z)
 }
 ```
 
-## EOF's
+# Upwelling index
+## Determining upwelling index from wind data (WindGuru and SAWS)
+## Index Equation from Fielding & Davis 1989 paper
+
+```{r}
+load("Data_P1/insitu_wind.RData")
+load("Data_P1/SACTN_fyears.RData")
+load("Data_P1/MUR_fyears.RData")
+load("Data_P1/OISST_fyears.RData")
+load("Data_P1/G1SST_fyears.RData")
+load("Data_P1/K10_fyears.RData")
+
+# UPWELLING INDEX EQUATION  - FIELDING & DAVIS 1989
+# Index = Wind_speed*cos(wind_direction) - 160) [*160 refers to the angle (degrees) of the coast]
+
+#data wrangling - TEMPERATURE
+SACTN_fyears_UI <- SACTN_fyears %>% 
+  dplyr::rename(temp = insitu_temp) %>%
+  group_by(site) %>%
+  select("date", "temp") 
+
+wind_UI <- insitu_wind %>%
+          group_by(site) %>%
+          mutate(ui.saws = mean_speed * (cos(dir_circ - 160)))
+
+index <- wind_UI %>%
+  group_by(site) %>% 
+  select("site", "date","ui.saws") %>% 
+  left_join(SACTN_fyears_UI, by = c("date", "site")) %>% 
+  mutate(ws.condition = ifelse(ui.saws > 0, "upwelling", "downwelling"))
+
+#Plotting the data
+#SAWS data
+ggplot(index, aes(x= date, y=ui.saws)) +
+  geom_area(aes(fill=ws.condition)) +
+  facet_wrap(~site) +
+  geom_line() +
+  geom_hline(yintercept=0)
+
+# Visualisation
+```
+
+### EOF's
 
 ```{r} 
 PCA_1 <- rda(tester)
@@ -995,7 +1175,7 @@ To do:
 - Try PCA
 - plot
 - dave upwelling index
-
+- 
 
 
 
