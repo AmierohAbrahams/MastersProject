@@ -38,3 +38,12 @@ These include:
 * Wavelets or other reprsentatiions of the upwelling events
 * Chlorophyll
 * Wind data
+
+# 2 May 2019
+Upwelling:
+- Find the upwelling threshold
+- Apply the MHW hypotheses
+- Attempt the EOF- PCA 
+- Upwelling indeces and plotting
+- Write up the methods
+- Discuss results
