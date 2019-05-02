@@ -216,7 +216,9 @@ knitr::include_graphics("../Figures/site_map.png")
  knitr::include_graphics("../Figures/wind.png")
 ```
 
-## Local and broad scale upwelling
+## Upwelling indeces
+
+
 
 
 
