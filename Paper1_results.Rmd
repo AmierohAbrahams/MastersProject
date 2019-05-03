@@ -1230,8 +1230,6 @@ interp2_YZ <- interp2(df = index_YZ)
 interp2_LB <- interp2(df = index_LB) 
 interp2_SB<- interp2(df = index_SB) 
 
-
-
 # Sea Point
 UIi_SP <- data.frame(Day=interp_SP$x, Index=interp_SP$y, Temp = interp2_SP$y)
 UIi_SP$saws_condition[UIi_SP$Index >= 0] <- "upwelling"
@@ -1250,7 +1248,6 @@ index_plot_SP <- ggplot(UIi_SP, aes(x=Day, y=Index)) +
   guides(fill=guide_legend(title="Condition")) +
   ggtitle("Sea Point")
 index_plot_SP
-
 
 # Kom
 UIi_KOM <- data.frame(Day=interp_KOM$x, Index=interp_KOM$y, Temp = interp2_KOM$y)
@@ -1400,12 +1397,6 @@ pc1_combined <- ggarrange( test1, test2, test3, test4)
 ```
 
 In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that those differences are due to changes in upwelling intensity.
-
-To do:
-- Try PCA
-- plot
-- dave upwelling index
-- 
 
 
 
