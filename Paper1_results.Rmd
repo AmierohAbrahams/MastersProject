@@ -568,6 +568,19 @@ site_map <- ggplot(data = south_africa_coast, aes(x = lon, y = lat)) + bw_update
         legend.title = element_text(size = 8),
         legend.key = element_blank(),
         legend.background = element_blank(),
+        axis.ticks = element_line(size = 0.5)) +
+    guides(fill = guide_colourbar(barheight = 1.00, barwidth = 10)) +
+  theme(panel.background = element_rect(fill = "ivory", colour = NA),
+        panel.border = element_rect(colour = "black", size = 0.5),
+        panel.grid.minor = element_line(colour = "NA"),
+        panel.grid.major = element_line(colour = "ivory", size = 0.2, linetype = "dotted"),
+        legend.direction = "horizontal",
+        legend.justification = c(1,0),
+        legend.position = c(0.65, 0.80),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.key = element_blank(),
+        legend.background = element_blank(),
         axis.ticks = element_line(size = 0.5))
 site_map
 
@@ -589,8 +602,8 @@ africa_map
 
 # More mapping - http://r-nold.blogspot.com/2014/06/creating-inset-map-with-ggplot2.html
 
-pdf("Figures/map_fixed.pdf", width = 8, height = 5, pointsize = 6) # Set PDF dimensions
-vp1 <- viewport(x = 0.70, y = 0.58, w = 0.25, h = 0.25, just = c("left", "bottom")) # Africa
+pdf("Figures/map_fixed.pdf", width = 10, height = 5, pointsize = 4) # Set PDF dimensions
+vp1 <- viewport(x = 0.70, y = 0.58, w = 0.25, h = 0.25) # Africa
 vp2 <- viewport(x = 1.0, y = 1.0, w = 1.00, h = 1.00, just = c("right", "top"))  # South Africa
 print(site_map, vp = vp2)
 print(africa_map, vp = vp1)

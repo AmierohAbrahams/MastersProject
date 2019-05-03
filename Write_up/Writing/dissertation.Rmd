@@ -191,7 +191,7 @@ At a broad scale, the South African coastline exhibits a large variation in seaw
 
 ```{r , echo= FALSE, message=FALSE, warning=FALSE, fig.cap="Map representing the study region along the South African coastline. The black points represent the location of their *in situ* temperatures and approximations of the pixels used along the shore normal trasect from the satellite sea surface temperatures shown with black boxes", fig.height=8, fig.width=12, fig.pos="H"}
 
-knitr::include_graphics("../Figures/site_map.png")
+knitr::include_graphics("../Figures/map_fixed.png")
 ```
 
 ## Detecting the intensity and duration of upwelling
@@ -218,10 +218,11 @@ knitr::include_graphics("../Figures/site_map.png")
 
 ## Upwelling indeces
 
+In order to determine the upwelling condition amoung the various sites located along this EBUS, an upwelling index was calcukated by using the formula presented in Field and Davis (1989). This formula was developed for a local site; Oudekraal, located within this benguela upwelling system (Figure? - Shows where oudekraal is on the site map relative to the other). The upwelling index serves as an indication of the intensity of upwelling at the individual sites located within the benguela upwelling region and is calculated by using the follwoing equation: 
 
+$$ Upwelling Index = μ{(Cos θ − 160)}$$
 
-
-
+In this equation μ represents the wind speed (m/s) and θ represents the wind direction which is measured in degrees. The 160 degrees is used as this refers to the angle of the coastline. This equation therefore is largely dependant on wind speed and direction data in order to determing the intensity of the upwelling event. Wind data were obtained daily from the South African Weather Service (SAWS). This wind data was then matched to the date at which temperature were collected. Wind this data the upwelling index was determined. By doing this we are able to examine how upwelling varied between sites located further away from the upwelling centres and sites more closeer to the upwelling centres. 
 
 
 
