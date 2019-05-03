@@ -1157,10 +1157,9 @@ index <- wind_UI %>%
 ggplot(index, aes(x= date, y=ui.saws)) +
   geom_area(aes(fill=saws.condition)) +
   facet_wrap(~site) +
-  geom_line() +
   geom_hline(yintercept=0)
 
-
+# Seperating sites
 index_SP <- index %>% 
   filter(site == "Sea Point") %>% 
   slice(-(c(34:70,435:632,686,1704)))
@@ -1346,6 +1345,12 @@ index_plot_SB
 
 upwelling_index <- ggarrange(index_plot_SP, index_plot_KOM, index_plot_PN,
           index_plot_YZ,index_plot_LB, index_plot_SB, ncol = 2, nrow = 3)
+```
+
+Calculating the temperature anomalies. This will be plotted on the same graph as the upwelling indeces. This allows for an observation on the relationship or patterns that exist as a result of temperature changes and he upwelling and downwelling conditions.
+
+```{r}
+
 ```
 
 ### EOF's
