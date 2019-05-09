@@ -50,8 +50,7 @@ library(doMC); doMC::registerDoMC(cores = 4)
 library(fasttime)
 library(xtable)
 library(ggpubr)
-
-# library(devtools)
+library(ggpubr); theme_set(theme_pubr())# library(devtools)
 # install_github("marchtaylor/sinkr")
 
 ## Functions
@@ -610,7 +609,8 @@ print(site_map, vp = vp2)
 print(africa_map, vp = vp1)
 dev.off()
 
-# png("Figures/site_map.png", width = 8, height = 5, pointsize = 6)
+# Site map
+# The insetting needs to be placed at appropriate location
 ```
 
 # Wind data
@@ -945,6 +945,9 @@ daily_chloro <- chloro_data %>%
   dplyr::select(-data) %>%
   tidyr::unnest() %>%
   select(-doy, -seas, -thresh)
+
+
+****Error: Evaluation error: sort(): detected NaN.*** 
 ```
 
 First I calculate the distance between the sites along the wc using the deg2rad function which transforms degrees to radians: Transforms between angles in degrees and radians. Thereafter I run a three way ANOVA. This was primarily done to test whether a significant difference in temperature exist between sites on a seasonal, yearly bases. Here the distance between the sites could also play a role. But distance is mainly used when compaing the intensity and duration of an upwelling event given the distance between the sites and its location (location: at an upwelling centre or further away)
@@ -1090,39 +1093,10 @@ summary(K10_season_func)
 #     MHW: threshold- 90th percentile, MCS: Threshold - 10th percentile
 ```
 
-# Here I want to test using generalised linear hypotheses if there is a difference in the intensity of upwellling events between the insitu and       satellite data.
-# Do the in situ and satelllite derived data yield the same number of events. First I add a seasonal column to test seasonal variation between 
-library(multcomp) # for generalized linear hypothesis test (glht)
-
-```{r}
-
-```
-
-Determining the R2 value between *in situ* and remotely sensed SST
-
-```{r}
-# Loading the *in situ* and Remotely sensed SST
-
-load("Data_P1/SACTN_fyears.RData")
-load("Data_P1/OISST_fyears.RData")
-
-SACTN_fyears <- SACTN_fyears %>% 
-  dplyr::rename(temp = insitu_temp)
-
-R2 <- data.frame()
-for(i in 1:length(levels(SACTN_fyears$site))) {
-  x <- subset(SACTN_fyears, site == levels(SACTN_fyears$site)[i])
-  y <- subset(df, site == levels(df$site)[i])
-  x <- x[x$date %in% y$date,]
-  y <- y[y$date %in% x$date,]
-  z <- data.frame(site = as.character(x$site[1]), R2 = coef(lm(y$temp~x$temp))[2])
-  R2 <- rbind(R2, z)
-}
-```
-
 # Upwelling index
-## Determining upwelling index from wind data (WindGuru and SAWS)
+## Determining upwelling index from wind data (SAWS)
 ## Index Equation from Fielding & Davis 1989 paper
+## This is only for the SACTN data
 
 ```{r}
 load("Data_P1/insitu_wind.RData")
@@ -1162,7 +1136,8 @@ ggplot(index, aes(x= date, y=ui.saws)) +
 # Seperating sites
 index_SP <- index %>% 
   filter(site == "Sea Point") %>% 
-  slice(-(c(34:70,435:632,686,1704)))
+  ungroup()#%>% 
+  # slice(-(c(34:70,435:632,686,1704)))
 
 index_KOM <- index %>% 
   filter(site == "Kommetjie")
@@ -1238,8 +1213,6 @@ index_plot_SP <- ggplot(UIi_SP, aes(x=Day, y=Index)) +
   geom_area(aes(fill=saws_condition)) +
   geom_hline(yintercept=0) +
   theme_bw() +
-  # annotate("text", x = 300, y = -12.5, label = "SAWS Data") +
-  #geom_vline(xintercept = c(116, 117, 133, 134, 244, 291), lty = 2, lwd = 1) +
   scale_fill_manual(values=c("salmon", "steelblue")) +
   scale_x_continuous(expand=c(0, 0)) +
   scale_y_reverse() +
@@ -1257,8 +1230,6 @@ index_plot_KOM <- ggplot(UIi_KOM, aes(x=Day, y=Index)) +
   geom_area(aes(fill=saws_condition)) +
   geom_hline(yintercept=0) +
   theme_bw() +
-  # annotate("text", x = 300, y = -12.5, label = "SAWS Data") +
-  #geom_vline(xintercept = c(116, 117, 133, 134, 244, 291), lty = 2, lwd = 1) +
   scale_fill_manual(values=c("salmon", "steelblue")) +
   scale_x_continuous(expand=c(0, 0)) +
   scale_y_reverse() +
@@ -1276,8 +1247,6 @@ index_plot_PN<- ggplot(UIi_PN, aes(x=Day, y=Index)) +
   geom_area(aes(fill=saws_condition)) +
   geom_hline(yintercept=0) +
   theme_bw() +
-  # annotate("text", x = 300, y = -12.5, label = "SAWS Data") +
-  #geom_vline(xintercept = c(116, 117, 133, 134, 244, 291), lty = 2, lwd = 1) +
   scale_fill_manual(values=c("salmon", "steelblue")) +
   scale_x_continuous(expand=c(0, 0)) +
   scale_y_reverse() +
@@ -1295,8 +1264,6 @@ index_plot_YZ<- ggplot(UIi_YZ, aes(x=Day, y=Index)) +
   geom_area(aes(fill=saws_condition)) +
   geom_hline(yintercept=0) +
   theme_bw() +
-  # annotate("text", x = 300, y = -12.5, label = "SAWS Data") +
-  #geom_vline(xintercept = c(116, 117, 133, 134, 244, 291), lty = 2, lwd = 1) +
   scale_fill_manual(values=c("salmon", "steelblue")) +
   scale_x_continuous(expand=c(0, 0)) +
   scale_y_reverse() +
@@ -1314,8 +1281,6 @@ index_plot_LB<- ggplot(UIi_LB, aes(x=Day, y=Index)) +
   geom_area(aes(fill=saws_condition)) +
   geom_hline(yintercept=0) +
   theme_bw() +
-  # annotate("text", x = 300, y = -12.5, label = "SAWS Data") +
-  #geom_vline(xintercept = c(116, 117, 133, 134, 244, 291), lty = 2, lwd = 1) +
   scale_fill_manual(values=c("salmon", "steelblue")) +
   scale_x_continuous(expand=c(0, 0)) +
   scale_y_reverse() +
@@ -1333,8 +1298,6 @@ index_plot_SB<- ggplot(UIi_SB, aes(x=Day, y=Index)) +
   geom_area(aes(fill=saws_condition)) +
   geom_hline(yintercept=0) +
   theme_bw() +
-  # annotate("text", x = 300, y = -12.5, label = "SAWS Data") +
-  #geom_vline(xintercept = c(116, 117, 133, 134, 244, 291), lty = 2, lwd = 1) +
   scale_fill_manual(values=c("salmon", "steelblue")) +
   scale_x_continuous(expand=c(0, 0)) +
   scale_y_reverse() +
@@ -1345,105 +1308,27 @@ index_plot_SB
 
 upwelling_index <- ggarrange(index_plot_SP, index_plot_KOM, index_plot_PN,
           index_plot_YZ,index_plot_LB, index_plot_SB, ncol = 2, nrow = 3)
+
+# See graph: ("Figures/upwelling_indeces.png")
+# Sea Point appears to have missing data
+# Lamberts bay appears to have missing data as well
+# Can we plot the graph where it ignores the missing data without interpolations? [AJ suggested]
+# Plot the temperature anomalies on the same graphs as the upwelling indeces for each of the sites
 ```
+######################################
 
-Calculating the temperature anomalies. This will be plotted on the same graph as the upwelling indeces. This allows for an observation on the relationship or patterns that exist as a result of temperature changes and he upwelling and downwelling conditions.
+# Question: How does the intensity and duration of an upwelling event vary at different distances from the coastline???
+  # Got the various pixels : load(Data_P1/site_pixels.RData)
+  # How do i determine where upwelling occured? - What is the threshold of an upwelling event? # How do i determine the threshold of this event
+  # Calculate event count, duration and mean intensity for each pixel
+  
+Look at the percentile level that seawater temperature must decrease below when an upwelling event occurs
+  - To what exttent the temperature of upwelled water  is colder than the mean SST. 
+  - How the minumum temperature of upwelled water becomes to be that temperature
+  - Why temperature does not become any colder
 
-```{r}
-
-```
-
-### EOF's
-
-```{r} 
-PCA_1 <- rda(tester)
-summary(PCA)
-
-# Proportion of variation explained
-# Values to be found opon running the code
-
-PCA <- cbind(scores(PCA_1, choices = c(1:4), display = "sites"))
-PCA_spe <- cbind(scores(PCA_1, choices = c(1:4), display = "species"))
-
-test1 <- ggplot(PCA, aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = PC1)) +
-  geom_polygon(data = PC1, aes(long, lat, group = group),
-               fill = NA, colour = "blue", size = 0.3) +
-  geom_polygon(data = velocity, aes(long, lat, group = group),
-               fill = NA, colour = "green", size = 0.3)+ 
-         fill = guide_colourbar(title = "PC1")
-
-test2 <- ggplot(PCA, aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = PC2)) +
-  geom_polygon(data = PC1, aes(long, lat, group = group),
-               fill = NA, colour = "blue", size = 0.3) +
-  geom_polygon(data = velocity, aes(long, lat, group = group),
-               fill = NA, colour = "green", size = 0.3)+ 
-         fill = guide_colourbar(title = "PC2")
-
-test3 <- ggplot(PCA, aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = PC2)) +
-  geom_polygon(data = PC1, aes(long, lat, group = group),
-               fill = NA, colour = "blue", size = 0.3) +
-  geom_polygon(data = velocity, aes(long, lat, group = group),
-               fill = NA, colour = "green", size = 0.3)+ 
-         fill = guide_colourbar(title = "PC3")
-
-test4 <- ggplot(PCA, aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = PC1)) +
-  geom_polygon(data = PC1, aes(long, lat, group = group),
-               fill = NA, colour = "blue", size = 0.3) +
-  geom_polygon(data = velocity, aes(long, lat, group = group),
-               fill = NA, colour = "green", size = 0.3)+ 
-         fill = guide_colourbar(title = "PC4")
-
-pc1_combined <- ggarrange( test1, test2, test3, test4)
-
-```
-
-In particular, trends will be observed to be different at ocean and coastal locations and we hypothesize that those differences are due to changes in upwelling intensity.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+To do:
+- how count, duration, intensity of upwelling changed between 1990s and current times
 
 
 

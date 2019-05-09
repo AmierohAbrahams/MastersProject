@@ -1,0 +1,189 @@
+---
+title: "upwelling_percentile"
+author: "Amieroh Abrahams"
+date: "08 May 2019"
+output: html_document
+---
+
+# Upwelling points
+
+* After analysing the data within the `upwelling_threshold.Rmd` script and plotting the data it is clear that upwelling occurs at a temperature less than or equal (<=) to 12.
+* It is also evident that upwelling lasts for a total of 2-3 days 
+
+# Aims of this script:
+  - Find a 30year time series
+  - Then find the count of the number of temperatures found less than or equal to (<=) 12
+  - Thereafter, divide that answer by the total number of number temperatures
+  - Then we have the percentile
+  
+# Questions: How does the intensity and duration of an upwelling event vary at different distances from the coastline??? 
+  # Here we can make use of the heatwaveR package to determine the count/durartion and intensity.
+  # Got the various pixels : load(Data_P1/site_pixels.RData)
+  # Calculate event count, duration and mean intensity once percentile has been determined
+
+# Tips:
+  - Look at the percentile level that seawater temperature must decrease below when an upwelling event occurs
+  - To what extent the temperature of upwelled water  is colder than the mean SST. 
+  - How the minumum temperature of upwelled water becomes to be that temperature
+  - Why temperature does not become any colde
+  
+ # DETERMINING THE UPWELLING THRESHOLD
+  # Plot the data
+  # Find a value showing a clear drop in temperature
+  # Determine from the dataset the amount of values falling bellow this defined temperature
+  # Convert this to percentile
+  # Determine how long (in days) upwelling events usually last 
+  # Once we have the percentile we can make use of the heatwaveR package to determine the count, intensity, duration, etc.
+  # Use one year of data maybe occuring in 1990s and one year of current data to observe how upwelling varied in past and present
+  
+# Loading packages
+
+```{r prelim_opts, echo=FALSE}
+knitr::opts_chunk$set(
+  comment = "R>",
+  warning = FALSE,
+  message = FALSE
+)
+
+library(tidyverse)
+library(plyr)
+library(lubridate)
+library(ggpubr)
+library(zoo)
+library(lubridate)
+library(FNN)
+library(forecast)
+library(astrochron)
+library(WaveletComp)
+library(data.table)
+library(heatwaveR)
+```
+
+# Loading the data 
+
+```{r load_files1, include=TRUE}
+load("Data_P1/site_list_v4.2.RData")
+load("Data_P1/SACTN_daily_v4.2.RData")
+```
+
+Finding a time series of greater than 30years
+
+```{r}
+site_list_sub <- site_list %>% 
+  filter(coast == "wc") %>% 
+  filter(length > 10950) 
+
+SACTN_temps_US <- SACTN_daily_v4.2 %>% 
+  left_join(site_list[,c(4,13)], by = "index") %>% 
+  filter(index %in% site_list_sub$index)
+# save(SACTN_temps_US, file = "Data/SACTN_temps_US.RData")
+
+SACTN_split <- SACTN_temps_US %>% 
+  separate(index, into = c("site", "src"), sep = "/", remove = FALSE) %>% 
+  drop_na()
+
+SACTN_temp <- SACTN_split %>% 
+  filter(temp <= 13) 
+
+percentile <- 30840/60189*100 # Count values
+# Percentile value of 50
+
+###################################################Percentile classification#################################################
+# percentile = 70
+0.7*60189
+# 42132
+SACTN_TRY1 <- SACTN_split %>%
+  arrange(temp) %>% 
+  slice(1:42132) # Upwelling temp  = 14 degrees
+
+# Percentile = 60
+0.6*60189
+# 36113
+SACTN_TRY2 <- SACTN_split %>%
+  arrange(temp) %>% 
+  slice(1:36113) # Upwelling temp = 13.7 degrees
+
+
+# Percentile = 50
+0.5*60189
+# 30094
+SACTN_TRY3 <- SACTN_split %>%
+  arrange(temp) %>% 
+  slice(1:30094) # Upwelling temp = 13 degrees
+
+# Percentile = 40
+0.4*60189
+# 24076
+SACTN_TRY4 <- SACTN_split %>%
+  arrange(temp) %>% 
+  slice(1:24076) # Upwelling temp = 13 degrees
+
+############################################################################################################################
+
+SACTN_PN <- SACTN_split %>%
+  filter(site == "Port Nolloth") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_LB <- SACTN_split %>%
+  filter(site == "Lamberts Bay") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_SB <- SACTN_split %>%
+  filter(site == "Saldanha Bay") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_SP <- SACTN_split %>%
+  filter(site == "Sea Point") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+
+SACTN_HB <- SACTN_split %>%
+  filter(site == "Hout Bay") %>%
+  select(-index, -site, -src, -length) %>% 
+  dplyr::rename(t = date) %>% 
+  drop_na()
+```
+
+```{r}
+ts <- ts2clm(SACTN_PN, climatologyPeriod = c("1974-01-01", "2016-12-31"),
+             pctile = 50)
+res <- detect_event(ts)
+upwelling <- res$climatology # Show a portion of the climatology
+upwelling_events <- res$event[1:5,1:10] # Show some of the cold-spells
+# MCS <- MCS[14408:15503,] # Get the years from 2013 - 2015
+
+upwelling_SACTN_PN <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2010-01-01", end_date = "2015-12-31")
+```
+
+# MUR
+
+```{r}
+load("~/Documents/Masters_2019/MastersProject/Exploring/Data/MUR_SST.RData")
+MUR_SST_PN <- MUR_SST %>%
+  filter(site == "Port Nolloth") %>% 
+  dplyr::rename(temp = nearest1) %>% 
+  select(date, temp) %>% 
+  dplyr::rename(t = date)
+
+ts <- ts2clm(MUR_SST_PN, climatologyPeriod = c("2002-06-01", "2015-12-30"), pctile = 30)
+res <- detect_event(ts)
+upwelling <- event_line(res, spread = 500, metric = "intensity_cumulative",
+           start_date = "2011-12-31", end_date = "2014-10-30") +
+  ggtitle("MUR_PN") 
+```
+
+
+
+
+
+
+
+
